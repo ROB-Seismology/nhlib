@@ -79,7 +79,7 @@ class BergeThierry2003(GMPE):
 
         # Equation 1, pag 201, with magnitude, distance and site amplification term
         log10_mean = self._compute_magnitude_scaling(rup, C) + \
-            self._compute_distance_scaling(rup, C) + \
+            self._compute_distance_scaling(dists, C) + \
             self._get_site_amplification(sites, C)
         
         # Convert m/s^2 to g, and take the natural logarithm
@@ -142,7 +142,7 @@ class BergeThierry2003(GMPE):
     # TODO: check if first period = 3.0000E-02 or 2.9412E-02
     COEFFS05 = CoeffsTable(sa_damping=5, table="""\
     IMT    a    b    c1    c2    std
-    2.9412E-02    3.1180E-01    -9.3030E-04 1.5370E+00  1.5730E+00    2.9230E-01
+    2.9412E-02    3.1180E-01    -9.3030E-04    1.5370E+00    1.5730E+00    2.9230E-01
     3.0000E-02    3.1140E-01    -9.3340E-04    1.5410E+00    1.5760E+00    2.9240E-01
     3.2258E-02    3.0970E-01    -9.4220E-04    1.5580E+00    1.5890E+00    2.9280E-01
     3.4000E-02    3.0830E-01    -9.5470E-04    1.5730E+00    1.6020E+00    2.9350E-01
