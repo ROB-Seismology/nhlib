@@ -52,8 +52,13 @@ class IMC(ConstantContainer):
     The intensity measure component is the component of interest
     of ground shaking for an :mod:`intensity measure <nhlib.imt>`.
     """
+<<<<<<< HEAD
     #: Both horizontal components independently.
     BOTH_HORIZONTAL = 'Both horizontal'
+=======
+    #: The horizontal component.
+    HORIZONTAL = 'Horizontal'
+>>>>>>> 19ec0a9290fcf634bea0bc2b4f41e7b7aa754afc
     #: Usually defined as the geometric average of the maximum
     #: of the two horizontal components (which may not occur
     #: at the same time).
