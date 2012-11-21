@@ -54,6 +54,8 @@ class IMC(ConstantContainer):
     """
     #: The horizontal component.
     HORIZONTAL = 'Horizontal'
+    #: Both horizontal components independently.
+    BOTH_HORIZONTAL = 'Both horizontal'
     #: Usually defined as the geometric average of the maximum
     #: of the two horizontal components (which may not occur
     #: at the same time).
