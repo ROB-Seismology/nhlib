@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import pickle
 import unittest
 
 import numpy
@@ -188,3 +189,53 @@ class SiteCollectionFilterTestCase(unittest.TestCase):
                                    placeholder=100)
         data_expanded_expected = data_condensed
         numpy.testing.assert_array_equal(data_expanded, data_expanded_expected)
+
+
+class SiteCollectionIterTestCase(unittest.TestCase):
+
+    def test(self):
+        s1 = Site(location=Point(10, 20),
+                  vs30=1.2, vs30measured=True,
+                  z1pt0=3.4, z2pt5=5.6)
+        s2 = Site(location=Point(-1.2, -3.4),
+                  vs30=55.4, vs30measured=False,
+                  z1pt0=66.7, z2pt5=88.9)
+        cll = SiteCollection([s1, s2])
+
+        cll_sites = list(cll)
+        for i, s in enumerate([s1, s2]):
+            self.assertEqual(s, cll_sites[i])
+
+    def test_depths_go_to_zero(self):
+        # Depth information is meant to be discarded when a site collection is
+        # created.
+        s1 = Site(location=Point(10, 20, 30),
+                  vs30=1.2, vs30measured=True,
+                  z1pt0=3.4, z2pt5=5.6)
+        s2 = Site(location=Point(-1.2, -3.4, -5.6),
+                  vs30=55.4, vs30measured=False,
+                  z1pt0=66.7, z2pt5=88.9)
+        cll = SiteCollection([s1, s2])
+
+        cll_sites = list(cll)
+        exp_s1 = Site(location=Point(10, 20, 0.0),
+                      vs30=1.2, vs30measured=True,
+                      z1pt0=3.4, z2pt5=5.6)
+        exp_s2 = Site(location=Point(-1.2, -3.4, 0.0),
+                      vs30=55.4, vs30measured=False,
+                      z1pt0=66.7, z2pt5=88.9)
+
+        for i, s in enumerate([exp_s1, exp_s2]):
+            self.assertEqual(s, cll_sites[i])
+
+
+
+class SitePickleTestCase(unittest.TestCase):
+    # Tests for pickling Sites.
+
+    def test_dumps_and_loads(self):
+        point = Point(1, 2, 3)
+        site1 = Site(point, 760.0, True, 100.0, 5.0)
+        site2 = pickle.loads(pickle.dumps(site1))
+
+        self.assertEqual(site1, site2)

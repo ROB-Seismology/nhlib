@@ -43,6 +43,10 @@ class Site(object):
 
     :raises ValueError:
         If any of ``vs30``, ``z1pt0`` or ``z2pt5`` is zero or negative.
+
+    .. note::
+
+        :class:`Sites <Site>` are pickleable
     """
     __slots__ = 'location vs30 vs30measured z1pt0 z2pt5'.split()
 
@@ -59,6 +63,99 @@ class Site(object):
         self.z1pt0 = z1pt0
         self.z2pt5 = z2pt5
 
+    def __getstate__(self):
+        """
+        Implemented to provide information for pickling.
+
+        :returns:
+            A `dict` with all of the site attributes:
+
+            * location
+            * vs30
+            * vs30measured (`True`/`False`)
+            * z1pt0
+            * z2pt5
+        """
+        return dict(
+            location=self.location,
+            vs30=self.vs30,
+            vs30measured=self.vs30measured,
+            z1pt0=self.z1pt0,
+            z2pt5=self.z2pt5,
+        )
+
+    def __setstate__(self, state):
+        """
+        Set state when creating a :class:`Site` from pickled data.
+        """
+        self.location = state['location']
+        self.vs30 = state['vs30']
+        self.vs30measured = state['vs30measured']
+        self.z1pt0 = state['z1pt0']
+        self.z2pt5 = state['z2pt5']
+
+    def __eq__(self, other):
+        """
+        >>> import nhlib
+        >>> point1 = nhlib.geo.point.Point(1, 2, 3)
+        >>> point2 = nhlib.geo.point.Point(1, 2, 3)
+        >>> site1 = Site(point2, 760.0, True, 100.0, 5.0)
+        >>> site2 = Site(point1, 760.0, True, 100.000000000001, 5.0)
+        >>> site1 == site2
+        True
+        >>> site4 = Site(point1, 760.0, True, 100.00000000001, 5.0)
+        >>> site1 == site4
+        False
+        >>> point3 = nhlib.geo.point.Point(1, 2, 4)
+        >>> site3 = Site(point3, 760.0, True, 100.0, 5.0)
+        >>> site1 != site3
+        True
+        >>> site1 == None
+        False
+        """
+        if other is None:
+            return False
+
+        other_state = other.__getstate__()
+
+        for key, value in self.__getstate__().iteritems():
+            ovalue = other_state.get(key)
+
+            if isinstance(value, (int, long, float, complex)):
+                if not numpy.allclose(value, ovalue, rtol=0, atol=1e-12):
+                    return False
+            else:
+                if not value == ovalue:
+                    return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __str__(self):
+        """
+        >>> import nhlib
+        >>> loc = nhlib.geo.point.Point(1, 2, 3)
+        >>> str(Site(loc, 760.0, True, 100.0, 5.0))
+        '<Location=<Latitude=2.000000, Longitude=1.000000, Depth=3.0000>, \
+Vs30=760.0000, Vs30Measured=True, Depth1.0km=100.0000, Depth2.5km=5.0000>'
+        """
+        return (
+            "<Location=%s, Vs30=%.4f, Vs30Measured=%r, Depth1.0km=%.4f, "
+            "Depth2.5km=%.4f>") % (
+                self.location, self.vs30, self.vs30measured, self.z1pt0,
+                self.z2pt5)
+
+    def __repr__(self):
+        """
+        >>> import nhlib
+        >>> loc = nhlib.geo.point.Point(1, 2, 3)
+        >>> site = Site(loc, 760.0, True, 100.0, 5.0)
+        >>> str(site) == repr(site)
+        True
+        """
+        return self.__str__()
+
 
 class SiteCollection(object):
     """
@@ -66,6 +163,15 @@ class SiteCollection(object):
 
     Instances of this class are intended to represent a large collection
     of sites in a most efficient way in terms of memory usage.
+
+    .. note::
+
+        Because calculations assume that :class:`Sites <Site>` are on the
+        Earth's surface, all `depth` information in a :class:`SiteCollection`
+        is discarded. The collection `mesh` will only contain lon and lat. So
+        even if a :class:`SiteCollection` is created from sites containing
+        `depth` in their geometry, iterating over the collection will yield
+        :class:`Sites <Site>` with a reference depth of 0.0.
 
     :param sites:
         A list of instances of :class:`Site` class.
@@ -98,6 +204,15 @@ class SiteCollection(object):
         for arr in (self.vs30, self.vs30measured, self.z1pt0, self.z2pt5,
                     self.mesh.lons, self.mesh.lats):
             arr.flags.writeable = False
+
+    def __iter__(self):
+        """
+        Iterate through all :class:`sites <Site>` in the collection, yielding
+        one at a time.
+        """
+        for i, location in enumerate(self.mesh):
+            yield Site(location, self.vs30[i], self.vs30measured[i],
+                       self.z1pt0[i], self.z2pt5[i])
 
     def expand(self, data, total_sites, placeholder):
         """
@@ -163,8 +278,8 @@ class SiteCollection(object):
         num_values = data.shape[1]
         result = numpy.empty((total_sites, num_values))
         result.fill(placeholder)
-        for i in xrange(num_values):
-            result[:, i].put(self.indices, data[:, i])
+        for i, idx in enumerate(self.indices):
+            result[idx] = data[i]
         return result
 
     def filter(self, mask):
