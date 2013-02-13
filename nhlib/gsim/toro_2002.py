@@ -91,9 +91,9 @@ class ToroEtAl2002(GMPE):
         # by the equations)
         if isinstance(imt, SA):
             if imt.period == 3.0:
-                mean /= 0.385
+                mean /= 0.612
             if imt.period == 4.0:
-                mean /= 0.1483
+                mean /= 0.559
 
         return mean, stddevs
 
@@ -188,14 +188,24 @@ class ToroEtAl2002SHARE(ToroEtAl2002):
             get_mean_and_stddevs(sites, rup, dists, imt, stddev_types)
 
         # apply faulting style and rock adjustment factor for mean and std
-        mean = np.log(np.exp(mean) *
-                      _compute_faulting_style_term(C_ADJ['Frss'],
+        #mean = np.log(np.exp(mean) *
+        #              _compute_faulting_style_term(C_ADJ['Frss'],
+        #                                           self.CONSTS_FS['pR'],
+        #                                           self.CONSTS_FS['Fnss'],
+        #                                           self.CONSTS_FS['pN'],
+        #                                           rup.rake) * C_ADJ['AFrock'])
+
+        mean = (mean + np.log(C_ADJ['AFrock']) +
+                      np.log(_compute_faulting_style_term(C_ADJ['Frss'],
                                                    self.CONSTS_FS['pR'],
                                                    self.CONSTS_FS['Fnss'],
                                                    self.CONSTS_FS['pN'],
-                                                   rup.rake) * C_ADJ['AFrock'])
+                                                   rup.rake)))
+
         #stddevs = np.array(stddevs) * C_ADJ['sig_AFrock']
-        stddevs = np.array(stddevs)
+        #stddevs = np.array(stddevs)
+        #stddevs = np.array(stddevs) + C_ADJ['sig_AFrock'] / C_ADJ['AFrock']
+        stddevs = np.sqrt(np.array(stddevs)**2 + (C_ADJ['sig_AFrock'] / C_ADJ['AFrock'])**2)
 
         return mean, stddevs
 
