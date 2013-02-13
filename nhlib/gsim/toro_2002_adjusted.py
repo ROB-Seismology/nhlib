@@ -28,7 +28,11 @@ from nhlib import const
 from nhlib.imt import PGA, SA
 
 
-class ToroEtAl2002(GMPE):
+## Compute these logs only once
+ln_g = np.log(g)
+
+
+class ToroEtAl2002adjusted(GMPE):
     """
     Implements GMPE developed by G. R. Toro, N. A. Abrahamson, J. F. Sneider
     and published in "Model of Strong Ground Motions from Earthquakes in
@@ -73,7 +77,7 @@ class ToroEtAl2002(GMPE):
     #: Required distance measure is rjb, see equation 4, page 46.
     REQUIRES_DISTANCES = set(('rjb', ))
 
-    def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
+    def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types, kappa=0.03):
         """
         See :meth:`superclass method
         <nhlib.gsim.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
@@ -82,7 +86,7 @@ class ToroEtAl2002(GMPE):
         assert all(stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
                    for stddev_type in stddev_types)
 
-        C = self.COEFFS[imt]
+        C = self.COEFFS[(800, 0.03)][imt]
         mean = self._compute_mean(C, rup.mag, dists.rjb)
         stddevs = self._compute_stddevs(C, rup.mag, dists.rjb, imt,
                                         stddev_types)
@@ -94,6 +98,9 @@ class ToroEtAl2002(GMPE):
                 mean /= 0.612
             if imt.period == 4.0:
                 mean /= 0.559
+        
+        # convert mean in m/s2 to mean in g
+        mean = mean - ln_g
 
         return mean, stddevs
 
@@ -104,7 +111,8 @@ class ToroEtAl2002(GMPE):
         """
         mag_diff = mag - 6
 
-        return C['c2'] * mag_diff + C['c3'] * mag_diff ** 2
+        #return C['c2'] * mag_diff + C['c3'] * mag_diff ** 2
+        return C['c2'] * mag_diff + C['c3'] * mag_diff * mag_diff
 
     def _compute_term2(self, C, mag, rjb):
         """
@@ -112,8 +120,10 @@ class ToroEtAl2002(GMPE):
         page 46. The factor 'RM' is computed according to the 2002 model
         (equation 4-3).
         """
-        RM = np.sqrt(rjb ** 2 + (C['c7'] ** 2) *
-                     np.exp(-1.25 + 0.227 * mag) ** 2)
+        x = np.exp(-1.25 + 0.227 * mag)
+        RM = np.sqrt(rjb * rjb + (C['c7'] * C['c7']) * x * x)
+        #RM = np.sqrt(rjb ** 2 + (C['c7'] ** 2) *
+        #             np.exp(-1.25 + 0.227 * mag) ** 2)
 
         return (-C['c4'] * np.log(RM) -
                 (C['c5'] - C['c4']) *
@@ -152,77 +162,20 @@ class ToroEtAl2002(GMPE):
 
         return stddevs
 
-    #: Coefficient tables obtained by joining tables 2, 3, and 4, pages 47,
-    #: 50, 51.
-    COEFFS = CoeffsTable(sa_damping=5, table="""\
+    #: Coefficient table: factors c1 to c7 replaced with the values
+    #: in Table 20 in the report of Drouet et al. (2010), p. 35
+    COEFFS = {}
+    COEFFS[(800, 0.03)] = CoeffsTable(sa_damping=5, table="""\
     IMT    c1    c2    c3    c4    c5    c6       c7   m50   m55   m80   r5    r20
-    pga    2.20  0.81  0.00  1.27  1.16  0.0021   9.3  0.55  0.59  0.50  0.54  0.20
-    0.03   4.00  0.79  0.00  1.57  1.83  0.0008  11.1  0.62  0.63  0.50  0.62  0.35
-    0.04   3.68  0.80  0.00  1.46  1.77  0.0013  10.5  0.62  0.63  0.50  0.57  0.29
-    0.10   2.37  0.81  0.00  1.10  1.02  0.0040   8.3  0.59  0.61  0.50  0.50  0.17
-    0.20   1.73  0.84  0.00  0.98  0.66  0.0042   7.5  0.60  0.64  0.56  0.45  0.12
-    0.40   1.07  1.05 -0.10  0.93  0.56  0.0033   7.1  0.63  0.68  0.64  0.45  0.12
-    1.00   0.09  1.42 -0.20  0.90  0.49  0.0023   6.8  0.63  0.64  0.67  0.45  0.12
-    2.00  -0.74  1.86 -0.31  0.92  0.46  0.0017   6.9  0.61  0.62  0.66  0.45  0.12
-    3.00  -0.74  1.86 -0.31  0.92  0.46  0.0017   6.9  0.61  0.62  0.66  0.45  0.12
-    4.00  -0.74  1.86 -0.31  0.92  0.46  0.0017   6.9  0.61  0.62  0.66  0.45  0.12
+    pga    3.56  0.83  0.00  1.02  0.58  0.0029   6.4  0.55  0.59  0.50  0.54  0.20
+    0.03   4.02  0.85  0.00  1.06  0.84  0.0026   6.7  0.62  0.63  0.50  0.62  0.35
+    0.04   4.39  0.83  0.00  1.13  0.87  0.0026   7.1  0.62  0.63  0.50  0.57  0.29
+    0.10   4.20  0.81  0.01  0.95  0.47  0.0047   6.1  0.59  0.61  0.50  0.50  0.17
+    0.20   3.89  0.83  0.01  0.87  0.19  0.0048   5.7  0.60  0.64  0.56  0.45  0.12
+    0.40   3.36  1.05 -0.10  0.85  0.21  0.0035   5.7  0.63  0.68  0.64  0.45  0.12
+    1.00   2.40  1.42 -0.20  0.84  0.24  0.0024   5.8  0.63  0.64  0.67  0.45  0.12
+    2.00   1.56  1.84 -0.30  0.87  0.27  0.0017   6.1  0.61  0.62  0.66  0.45  0.12
+    3.00   1.56  1.84 -0.30  0.87  0.27  0.0017   6.1  0.61  0.62  0.66  0.45  0.12
+    4.00   1.56  1.84 -0.30  0.87  0.27  0.0017   6.1  0.61  0.62  0.66  0.45  0.12
     """)
 
-
-class ToroEtAl2002SHARE(ToroEtAl2002):
-
-    #: Required rupture parameters are magnitude and rake
-    REQUIRES_RUPTURE_PARAMETERS = set(('mag', 'rake'))
-
-    def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
-        """
-        See :meth:`superclass method
-        <nhlib.gsim.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
-        for spec of input and result values.
-        """
-        # extract faulting style and rock adjustment coefficients for the
-        # given imt
-        C_ADJ = self.COEFFS_FS_ROCK[imt]
-
-        mean, stddevs = super(ToroEtAl2002SHARE, self).\
-            get_mean_and_stddevs(sites, rup, dists, imt, stddev_types)
-
-        # apply faulting style and rock adjustment factor for mean and std
-        #mean = np.log(np.exp(mean) *
-        #              _compute_faulting_style_term(C_ADJ['Frss'],
-        #                                           self.CONSTS_FS['pR'],
-        #                                           self.CONSTS_FS['Fnss'],
-        #                                           self.CONSTS_FS['pN'],
-        #                                           rup.rake) * C_ADJ['AFrock'])
-
-        mean = (mean + np.log(C_ADJ['AFrock']) +
-                      np.log(_compute_faulting_style_term(C_ADJ['Frss'],
-                                                   self.CONSTS_FS['pR'],
-                                                   self.CONSTS_FS['Fnss'],
-                                                   self.CONSTS_FS['pN'],
-                                                   rup.rake)))
-
-        #stddevs = np.array(stddevs) * C_ADJ['sig_AFrock']
-        #stddevs = np.array(stddevs)
-        #stddevs = np.array(stddevs) + C_ADJ['sig_AFrock'] / C_ADJ['AFrock']
-        stddevs = np.sqrt(np.array(stddevs)**2 + (C_ADJ['sig_AFrock'] / C_ADJ['AFrock'])**2)
-
-        return mean, stddevs
-
-    #: Coefficients for faulting style and rock adjustment
-    COEFFS_FS_ROCK = CoeffsTable(sa_damping=5, table="""\
-    IMT    Frss      AFrock    sig_AFrock
-    pga    1.220000  0.735106  0.338916
-    0.03   0.935198  0.423049  0.289785
-    0.04   0.907936  0.477379  0.320650
-    0.10   1.080000  0.888509  0.352442
-    0.20   1.190000  1.197291  0.281552
-    0.40   1.230000  1.308267  0.198424
-    1.00   1.196667  1.265762  0.154327
-    2.00   1.140000  1.215779  0.155520
-    3.00   1.140000  1.215779  0.155520
-    4.00   1.140000  1.215779  0.155520
-    """)
-
-    #: Constants for faulting style adjustment
-    CONSTS_FS = {'Fnss': 0.95, 'pN': 0.01, 'pR': 0.81}

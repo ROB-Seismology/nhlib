@@ -190,14 +190,24 @@ class Campbell2003SHARE(Campbell2003):
             get_mean_and_stddevs(sites, rup, dists, imt, stddev_types)
 
         # apply faulting style and rock adjustment factor for mean and std
-        mean = np.log(np.exp(mean) *
-                      _compute_faulting_style_term(C_ADJ['Frss'],
+        #mean = np.log(np.exp(mean) *
+        #              _compute_faulting_style_term(C_ADJ['Frss'],
+        #                                           self.CONSTS_FS['pR'],
+        #                                           self.CONSTS_FS['Fnss'],
+        #                                           self.CONSTS_FS['pN'],
+        #                                           rup.rake) * C_ADJ['AFrock'])
+        
+        mean = (mean + np.log(C_ADJ['AFrock']) +
+                      np.log(_compute_faulting_style_term(C_ADJ['Frss'],
                                                    self.CONSTS_FS['pR'],
                                                    self.CONSTS_FS['Fnss'],
                                                    self.CONSTS_FS['pN'],
-                                                   rup.rake) * C_ADJ['AFrock'])
+                                                   rup.rake)))
+
         #stddevs = np.array(stddevs) * C_ADJ['sig_AFrock']
-        stddevs = np.array(stddevs)
+        #stddevs = np.array(stddevs)
+        #stddevs = np.array(stddevs) + C_ADJ['sig_AFrock'] / C_ADJ['AFrock']
+        stddevs = np.sqrt(np.array(stddevs)**2 + (C_ADJ['sig_AFrock'] / C_ADJ['AFrock'])**2)
 
         return mean, stddevs
 
@@ -231,8 +241,10 @@ def _compute_faulting_style_term(Frss, pR, Fnss, pN, rake):
     Compute SHARE faulting style adjustment term.
     """
     if rake > -120.0 and rake <= -60.0:
-        return np.power(Frss, 1 - pR) * np.power(Fnss, -pN)
-    elif rake > 30.0 and rake <= 150.0:
+        #return np.power(Frss, 1 - pR) * np.power(Fnss, -pN)
         return np.power(Frss, - pR) * np.power(Fnss, 1 - pN)
+    elif rake > 30.0 and rake <= 150.0:
+        #return np.power(Frss, - pR) * np.power(Fnss, 1 - pN)
+        return np.power(Frss, 1 - pR) * np.power(Fnss, -pN)
     else:
         return np.power(Frss, - pR) * np.power(Fnss, - pN)
