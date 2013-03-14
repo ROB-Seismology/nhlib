@@ -1,5 +1,5 @@
 # coding: utf-8
-# nhlib: A New Hazard Library
+# The Hazard Library
 # Copyright (C) 2012 GEM Foundation
 #
 # This program is free software: you can redistribute it and/or modify
@@ -21,9 +21,9 @@ from __future__ import division
 
 import numpy as np
 
-from nhlib.gsim.base import GMPE, CoeffsTable
-from nhlib import const
-from nhlib.imt import PGA, PGV, SA
+from openquake.hazardlib.gsim.base import GMPE, CoeffsTable
+from openquake.hazardlib import const
+from openquake.hazardlib.imt import PGA, PGV, SA
 
 
 class AmbraseysEtAl1996(GMPE):
@@ -32,11 +32,11 @@ class AmbraseysEtAl1996(GMPE):
     of horizontal response spectra in Europe" (1996, Earthquake Engineering and
     Structural Dynamics, Volume 25, pages 371-400).
     """
-    
+
     #: Supported tectonic region type is stable shallow crust.
     #: See paragraph 'Introduction', pag 371.
     DEFINED_FOR_TECTONIC_REGION_TYPE = const.TRT.STABLE_CONTINENTAL
-    
+
     #: Supported intensity measure types are spectral acceleration and
     #: peak ground acceleration.
     #: See equation 15, pag 378, and table 1, pag 383.
@@ -44,57 +44,57 @@ class AmbraseysEtAl1996(GMPE):
         PGA,
         SA
     ])
-    
+
     #: Supported intensity measure component is greater of two horizontal
-    #: :attr:`~nhlib.const.IMC.BOTH_HORIZONTAL`.
+    #: :attr:`~openquake.hazardlib.const.IMC.BOTH_HORIZONTAL`.
     #: See Douglas J, 2001. Ground-motion prediction equations 1964–2010. BRGM/RP-59356-FR, 444 pages.
     DEFINED_FOR_INTENSITY_MEASURE_COMPONENT = const.IMC.GREATER_OF_TWO_HORIZONTAL
-    
+
     #: Supported standard deviation type is total.
     #: See table 1, pag 383.
     DEFINED_FOR_STANDARD_DEVIATION_TYPES = set([
         const.StdDev.TOTAL
     ])
-    
+
     #: Required site parameter is vs30 (used to distinguish rock (vs30 >= 750 m/s),
     #: stiff soil (360 m/s <= vs30 < 750 m/s)) and soft soil (vs30 < 360 m/s).
     #: See paragraph 'Local soil conditions', pag 373, and
     #: 'Inclusion of the site geology in the attenuation model', pag 378.
     REQUIRES_SITES_PARAMETERS = set(('vs30',))
-    
+
     #: Required rupture parameter is magnitude.
     #: See equation 11, pag 378.
     REQUIRES_RUPTURE_PARAMETERS = set(('mag',))
-    
+
     #: Required distance measure is rjb.
     #: See paragraph 'Source distance', pag 372.
     REQUIRES_DISTANCES = set(('rjb',))
-    
+
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
         """
         See :meth:`superclass method
-        <nhlib.gsim.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
+        <.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
         for spec of input and result values.
         """
         # extracting dictionary of coefficients specific to required
         # intensity measure type.
         C = self.COEFFS[imt]
-        
+
         # Equation 11, pag 378, with intercept, magnitude, distance and site amplification term
         log10_mean = C['c1'] + \
             self._compute_magnitude_scaling(rup, C) + \
             self._compute_distance_scaling(dists, C) + \
             self._get_site_amplification(sites, C)
-        
+
         # From common to natural logarithm
         mean = np.log(10**log10_mean)
-        
+
         stddevs = self._get_stddevs(C, stddev_types, num_sites=len(sites.vs30))
         # From common to natural logarithm
         stddevs = np.log(stddevs)
-        
+
         return mean, stddevs
-    
+
     def _get_stddevs(self, C, stddev_types, num_sites):
         """
         Return standard deviations as defined in table 1, pag 383.
@@ -106,14 +106,14 @@ class AmbraseysEtAl1996(GMPE):
                 stddevs.append(C['std'] + np.zeros(num_sites))
         stddevs = 10**np.array(stddevs)
         return stddevs
-    
+
     def _compute_magnitude_scaling(self, rup, C):
         """
         Compute magnitude-scaling term, equation 11, pag 378.
         """
         val = C['c2'] * rup.mag
         return val
-    
+
     def _compute_distance_scaling(self, dists, C):
         """
         Compute distance-scaling term, equations 11, pag 378, and 4, pag 376.
@@ -121,7 +121,7 @@ class AmbraseysEtAl1996(GMPE):
         r = np.sqrt(dists.rjb * dists.rjb + C['h0'] * C['h0'])
         val = C['c4'] * np.log10(r)
         return val
-    
+
     def _get_site_amplification(self, sites, C):
         """
         Compute site amplification term, equation 11, pag 378.
@@ -145,8 +145,8 @@ class AmbraseysEtAl1996(GMPE):
         idx_Ss = (sites.vs30 < 360.0)
         Sa[idx_Sa] = 1
         Ss[idx_Ss] = 1
-        return Sa, Ss 
-    
+        return Sa, Ss
+
     #: Coefficient table is constructed from values in table 1, pag 383.
     #: Spectral acceleration is defined for damping of 5%.
     #: See paragraph 'Attenuation of spectral ordinates', pag 382.

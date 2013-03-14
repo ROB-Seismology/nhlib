@@ -1,4 +1,4 @@
-# nhlib: A New Hazard Library
+# The Hazard Library
 # Copyright (C) 2012 GEM Foundation
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,9 +20,9 @@ from __future__ import division
 
 import numpy as np
 
-from nhlib.gsim.base import GMPE, CoeffsTable
-from nhlib import const
-from nhlib.imt import PGA, PGV, SA
+from openquake.hazardlib.gsim.base import GMPE, CoeffsTable
+from openquake.hazardlib import const
+from openquake.hazardlib.imt import PGA, PGV, SA
 
 
 class BergeThierry2003(GMPE):
@@ -43,7 +43,7 @@ class BergeThierry2003(GMPE):
     ])
 
     #: Supported intensity measure component is both horizontal
-    #: :attr:`~nhlib.const.IMC.BOTH_HORIZONTAL`.
+    #: :attr:`~openquake.hazardlib.const.IMC.BOTH_HORIZONTAL`.
     #: See paragraph 'Record selection and data processing', pag 195.
     DEFINED_FOR_INTENSITY_MEASURE_COMPONENT = const.IMC.BOTH_HORIZONTAL
 
@@ -70,7 +70,7 @@ class BergeThierry2003(GMPE):
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
         """
         See :meth:`superclass method
-        <nhlib.gsim.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
+        <.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
         for spec of input and result values.
         """
         # extracting dictionary of coefficients specific to required
@@ -81,7 +81,7 @@ class BergeThierry2003(GMPE):
         log10_mean = self._compute_magnitude_scaling(rup, C) + \
             self._compute_distance_scaling(dists, C) + \
             self._get_site_amplification(sites, C)
-        
+
         # Convert m/s^2 to g, and take the natural logarithm
         mean = (10**log10_mean) / 981.0
         mean = np.log(mean)

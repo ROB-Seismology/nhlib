@@ -1,4 +1,4 @@
-# nhlib: A New Hazard Library
+# The Hazard Library
 # Copyright (C) 2012 GEM Foundation
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,9 +20,9 @@ from __future__ import division
 
 import numpy as np
 
-from nhlib.gsim.base import GMPE, CoeffsTable
-from nhlib import const
-from nhlib.imt import PGA, PGV, SA
+from openquake.hazardlib.gsim.base import GMPE, CoeffsTable
+from openquake.hazardlib import const
+from openquake.hazardlib.imt import PGA, PGV, SA
 
 
 class BindiEtAl2011(GMPE):
@@ -36,7 +36,7 @@ class BindiEtAl2011(GMPE):
 	#: Supported tectonic region type is active shallow crust, give that the
 	#: the equations have been derived for Italy.
 	DEFINED_FOR_TECTONIC_REGION_TYPE = const.TRT.ACTIVE_SHALLOW_CRUST
-	
+
 	#: Supported intensity measure types are spectral acceleration, peak ground
 	#: velocity and peak ground acceleration, p. 5.
 	DEFINED_FOR_INTENSITY_MEASURE_TYPES = set([
@@ -44,11 +44,11 @@ class BindiEtAl2011(GMPE):
 		PGV,
 		SA,
 	])
-	
+
 	#: Supported intensity measure component is the geometric mean of two
-	#: horizontal components :attr:`~nhlib.const.IMC.AVERAGE_HORIZONTAL`, p. 6.
+	#: horizontal components :attr:`~openquake.hazardlib.const.IMC.AVERAGE_HORIZONTAL`, p. 6.
 	DEFINED_FOR_INTENSITY_MEASURE_COMPONENT = const.IMC.AVERAGE_HORIZONTAL
-	
+
 	#: Supported standard deviation types are inter-event, intra-event and
 	#: total, p. 6.
 	DEFINED_FOR_STANDARD_DEVIATION_TYPES = set([
@@ -56,18 +56,18 @@ class BindiEtAl2011(GMPE):
 		const.StdDev.INTER_EVENT,
 		const.StdDev.INTRA_EVENT,
 	])
-	
+
 	#: Required site parameters is Vs30, p. 4.
 	REQUIRES_SITES_PARAMETERS = set([
 		'vs30',
 	])
-	
+
 	#: Required rupture parameters are magnitude and rake, p. 6.
 	REQUIRES_RUPTURE_PARAMETERS = set([
 		'mag',
 		'rake',
 	])
-	
+
 	#: Required distance measure is rjb, p. 5.
 	REQUIRES_DISTANCES = set([
 		'rjb'
@@ -76,13 +76,13 @@ class BindiEtAl2011(GMPE):
 	def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
 		"""
 		See :meth:`superclass method
-		<nhlib.gsim.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
+		<.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
 		for spec of input and result values.
 		"""
 		# extracting dictionary of coefficients specific to required
 		# intensity measure type.
 		C = self.COEFFS[imt]
-		
+
 		# mean value as given by equation (1), p. 5.
 		mean = C['e1'] + self._get_distance_scaling_term(C, rup, dists) + self._get_magnitude_scaling_term(C, rup) + self._get_site_term(C, sites) + self._get_fault_term(C, rup)
 		if isinstance(imt, PGA) or isinstance(imt, SA):
@@ -94,46 +94,46 @@ class BindiEtAl2011(GMPE):
 
 		# natural logarithm
 		mean = np.log(mean)
-		
+
 		stddevs = self._get_stddevs(C, stddev_types, len(sites.vs30))
-		
+
 		return mean, stddevs
-	
+
 	def _get_distance_scaling_term(self, C, rup, dists):
 		"""
 		Get distance scaling term, equation (2), p. 5.
 		"""
 		#: p. 6
 		Mref, Rref = 5., 1.
-		
+
 		return (C['c1'] + C['c2'] * (rup.mag - Mref)) * np.log10(np.sqrt(dists.rjb ** 2 + C['h'] ** 2) / Rref) - C['c3'] * (np.sqrt(dists.rjb ** 2 + C['h'] ** 2) - Rref)
-	
+
 	def _get_magnitude_scaling_term(self, C, rup):
 		"""
 		Get magnitude scaling term, equation (3), p. 5.
 		"""
 		#: p. 6
 		Mh = 6.75
-		
+
 		if rup.mag <= Mh:
 			return C['b1'] * (rup.mag - Mh) + C['b2'] * (rup.mag - Mh) ** 2
 		else:
 			#: Should be "C['b3'] * (rup.mag - Mh)", but b3 = 0, p. 6.
 			return 0.
-	
+
 	def _get_site_term(self, C, sites):
 		"""
 		Get site term, p. 4 and 6.
 		"""
 		site_term = np.zeros_like(sites.vs30)
-		
+
 		site_term[sites.vs30 >= 800] = C['sA']
 		site_term[(sites.vs30 >= 360) & (sites.vs30 < 800)] = C['sB']
 		site_term[(sites.vs30 >= 180) & (sites.vs30 < 360)] = C['sC']
 		site_term[sites.vs30 < 180] = C['sD']
-		
+
 		return site_term
-	
+
 	def _get_fault_term(self, C, rup):
 		"""
 		Get fault term, p. 6.
@@ -150,7 +150,7 @@ class BindiEtAl2011(GMPE):
 		Get standard deviations.
 		"""
 		stddevs = []
-		
+
 		for stddev_type in stddev_types:
 			assert stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
 			if stddev_type == const.StdDev.TOTAL:
@@ -159,9 +159,9 @@ class BindiEtAl2011(GMPE):
 				stddevs.append(C['s_intra'] + np.zeros(num_sites))
 			elif stddev_type == const.StdDev.INTER_EVENT:
 				stddevs.append(C['s_inter'] + np.zeros(num_sites))
-				
+
 		return stddevs
-	
+
 	#: Coefficient table obtained by joining tables 1, p. 19 and 5, p. 22.
 	COEFFS = CoeffsTable(sa_damping=5, table="""\
 	IMT		e1		c1		c2		h		c3			b1		b2			sA	sB		sC		sD		sE		f1		f2		f3		f4	s_inter	s_intra	s_total

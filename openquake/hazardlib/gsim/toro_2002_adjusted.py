@@ -1,4 +1,4 @@
-# nhlib: A New Hazard Library
+# The Hazard Library
 # Copyright (C) 2012 GEM Foundation
 #
 # This program is free software: you can redistribute it and/or modify
@@ -22,10 +22,10 @@ import numpy as np
 # standard acceleration of gravity in m/s**2
 from scipy.constants import g
 
-from nhlib.gsim.campbell_2003 import _compute_faulting_style_term
-from nhlib.gsim.base import CoeffsTable, GMPE
-from nhlib import const
-from nhlib.imt import PGA, SA
+from openquake.hazardlib.gsim.campbell_2003 import _compute_faulting_style_term
+from openquake.hazardlib.gsim.base import CoeffsTable, GMPE
+from openquake.hazardlib import const
+from openquake.hazardlib.imt import PGA, SA
 
 
 ## Compute these logs only once
@@ -60,7 +60,7 @@ class ToroEtAl2002adjusted(GMPE):
     ])
 
     #: Supported intensity measure component is the geometric mean of two
-    #: horizontal components :attr:`~nhlib.const.IMC.AVERAGE_HORIZONTAL`,
+    #: horizontal components :attr:`~openquake.hazardlib.const.IMC.AVERAGE_HORIZONTAL`,
     DEFINED_FOR_INTENSITY_MEASURE_COMPONENT = const.IMC.AVERAGE_HORIZONTAL
 
     #: Supported standard deviation type is only total.
@@ -80,7 +80,7 @@ class ToroEtAl2002adjusted(GMPE):
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types, kappa=0.03):
         """
         See :meth:`superclass method
-        <nhlib.gsim.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
+        <.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
         for spec of input and result values.
         """
         assert all(stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
@@ -98,7 +98,7 @@ class ToroEtAl2002adjusted(GMPE):
                 mean /= 0.612
             if imt.period == 4.0:
                 mean /= 0.559
-        
+
         # convert mean in m/s2 to mean in g
         mean = mean - ln_g
 
