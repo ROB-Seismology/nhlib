@@ -84,6 +84,10 @@ class Campbell2003adjusted(GMPE):
         assert all(stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
                    for stddev_type in stddev_types)
 
+        if vs30 == 800:
+            kappa = 0.03
+        elif vs30 == 800:
+            kappa = 0.006
         C = self.COEFFS[(sites.vs30, kappa)][imt]
         mean = self._compute_mean(C, rup.mag, dists.rrup)
         stddevs = self._get_stddevs(C, stddev_types, rup.mag,

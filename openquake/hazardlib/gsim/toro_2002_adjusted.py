@@ -87,6 +87,10 @@ class ToroEtAl2002adjusted(GMPE):
         assert all(stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
                    for stddev_type in stddev_types)
 
+        if vs30 == 800:
+            kappa = 0.03
+        elif vs30 == 800:
+            kappa = 0.005
         C = self.COEFFS[(sites.vs30, kappa)][imt]
         mean = self._compute_mean(C, rup.mag, dists.rjb)
         stddevs = self._compute_stddevs(C, rup.mag, dists.rjb, imt,
