@@ -63,8 +63,9 @@ class Campbell2003adjusted(GMPE):
         const.StdDev.TOTAL
     ])
 
-    #: No site parameters are needed
-    REQUIRES_SITES_PARAMETERS = set()
+    #: Required site parameters is Vs30.
+    #: See paragraph 'Equations for soil sites', p. 2200
+    REQUIRES_SITES_PARAMETERS = set(('vs30', ))
 
     #: Required rupture parameter is only magnitude, see equation 30 page
     #: 1021.
@@ -83,7 +84,7 @@ class Campbell2003adjusted(GMPE):
         assert all(stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
                    for stddev_type in stddev_types)
 
-        C = self.COEFFS[(800, 0.03)][imt]
+        C = self.COEFFS[(sites.vs30, kappa)][imt]
         mean = self._compute_mean(C, rup.mag, dists.rrup)
         stddevs = self._get_stddevs(C, stddev_types, rup.mag,
                                     dists.rrup.shape[0])
