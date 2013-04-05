@@ -75,7 +75,7 @@ class Campbell2003adjusted(GMPE):
     #: 30 page 1021.
     REQUIRES_DISTANCES = set(('rrup', ))
 
-    def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types, kappa=0.03):
+    def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
         """
         See :meth:`superclass method
         <.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
@@ -84,11 +84,11 @@ class Campbell2003adjusted(GMPE):
         assert all(stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
                    for stddev_type in stddev_types)
 
-        if vs30 == 800:
+        if sites.vs30[0] == 800:
             kappa = 0.03
-        elif vs30 == 800:
+        elif sites.vs30[0] == 2000:
             kappa = 0.006
-        C = self.COEFFS[(sites.vs30, kappa)][imt]
+        C = self.COEFFS[(sites.vs30[0], kappa)][imt]
         mean = self._compute_mean(C, rup.mag, dists.rrup)
         stddevs = self._get_stddevs(C, stddev_types, rup.mag,
                                     dists.rrup.shape[0])
