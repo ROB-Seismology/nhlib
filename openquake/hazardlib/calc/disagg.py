@@ -180,47 +180,51 @@ def _collect_bins_data(sources, site, imt, iml, gsims, tom,
     # as the original one (with one site), or the source/rupture is filtered
     # out and doesn't show up in the filter's output
     for src_idx, (source, s_sites) in \
-        enumerate(source_site_filter(sources_sites)):
+            enumerate(source_site_filter(sources_sites)):
+        try:
+            tect_reg = source.tectonic_region_type
+            gsim = gsims[tect_reg]
 
-        tect_reg = source.tectonic_region_type
-        gsim = gsims[tect_reg]
+            if not tect_reg in trt_nums:
+                trt_nums[tect_reg] = _next_trt_num
+                _next_trt_num += 1
+            tect_reg = trt_nums[tect_reg]
 
-        if not tect_reg in trt_nums:
-            trt_nums[tect_reg] = _next_trt_num
-            _next_trt_num += 1
-        tect_reg = trt_nums[tect_reg]
+            ruptures_sites = ((rupture, s_sites)
+                              for rupture in source.iter_ruptures(tom))
+            for rupture, r_sites in rupture_site_filter(ruptures_sites):
+                # extract rupture parameters of interest
+                mags.append(rupture.mag)
+                [jb_dist] = rupture.surface.get_joyner_boore_distance(sitemesh)
+                dists.append(jb_dist)
+                [closest_point] = rupture.surface.get_closest_points(sitemesh)
+                lons.append(closest_point.longitude)
+                lats.append(closest_point.latitude)
+                tect_reg_types.append(tect_reg)
 
-        ruptures_sites = ((rupture, s_sites)
-                          for rupture in source.iter_ruptures(tom))
-        for rupture, r_sites in rupture_site_filter(ruptures_sites):
-            # extract rupture parameters of interest
-            mags.append(rupture.mag)
-            [jb_dist] = rupture.surface.get_joyner_boore_distance(sitemesh)
-            dists.append(jb_dist)
-            [closest_point] = rupture.surface.get_closest_points(sitemesh)
-            lons.append(closest_point.longitude)
-            lats.append(closest_point.latitude)
-            tect_reg_types.append(tect_reg)
+                # compute conditional probability of exceeding iml given
+                # the current rupture, and different epsilon level, that is
+                # ``P(IMT >= iml | rup, epsilon_bin)`` for each of epsilon bins
+                sctx, rctx, dctx = gsim.make_contexts(sitecol, rupture)
+                [poes_given_rup_eps] = gsim.disaggregate_poe(
+                    sctx, rctx, dctx, imt, iml, truncation_level, n_epsilons
+                )
 
-            # compute conditional probability of exceeding iml given
-            # the current rupture, and different epsilon level, that is
-            # ``P(IMT >= iml | rup, epsilon_bin)`` for each of epsilon bins
-            sctx, rctx, dctx = gsim.make_contexts(sitecol, rupture)
-            [poes_given_rup_eps] = gsim.disaggregate_poe(
-                sctx, rctx, dctx, imt, iml, truncation_level, n_epsilons
-            )
+                # compute probability of one or more rupture occurrences
+                probs_one_or_more.append(
+                    rupture.get_probability_one_or_more_occurrences()
+                )
 
-            # compute probability of one or more rupture occurrences
-            probs_one_or_more.append(
-                rupture.get_probability_one_or_more_occurrences()
-            )
+                # collect probability of exceedance given the rupture
+                probs_exceed_given_rup.append(poes_given_rup_eps)
 
-            # collect probability of exceedance given the rupture
-            probs_exceed_given_rup.append(poes_given_rup_eps)
-
-            # keep track of the source index, so that the probabilities can be
-            # associated to each source
-            src_idxs.append(src_idx)
+                # keep track of the source index, so that the probabilities can
+                # be associated to each source
+                src_idxs.append(src_idx)
+        except Exception, err:
+            msg = 'An error occurred with source id=%s. Error: %s'
+            msg %= (source.source_id, err.message)
+            raise RuntimeError(msg)
 
     mags = numpy.array(mags, float)
     dists = numpy.array(dists, float)
@@ -326,18 +330,13 @@ def _arrange_data_in_bins(bins_data, bin_edges):
                             diss_idx = (i_mag, i_dist, i_lon,
                                         i_lat, i_eps, i_trt)
 
-                            # compute probability of exceedance due to the set
-                            # of ruptures in the current disaggregation bin
-                            poe = 1.0
-                            for i_src in src_indices:
-                                src_idx = src_idxs == i_src
-                                prob_idx = (mag_idx & dist_idx & lon_idx
-                                            & lat_idx & trt_idx & src_idx)
+                            prob_idx = (mag_idx & dist_idx & lon_idx
+                                        & lat_idx & trt_idx)
 
-                                poe *= numpy.prod(
-                                    (1 - probs_one_or_more[prob_idx]) **
-                                    probs_exceed_given_rup[prob_idx, i_eps]
-                                )
+                            poe = numpy.prod(
+                                (1 - probs_one_or_more[prob_idx]) **
+                                probs_exceed_given_rup[prob_idx, i_eps]
+                            )
                             poe = 1 - poe
 
                             diss_matrix[diss_idx] = poe

@@ -22,8 +22,10 @@ from openquake.hazardlib.geo import Point
 from openquake.hazardlib.geo.surface.planar import PlanarSurface
 from openquake.hazardlib.source.base import SeismicSource
 from openquake.hazardlib.source.rupture import ProbabilisticRupture
+from openquake.hazardlib.slots import with_slots
 
 
+@with_slots
 class PointSource(SeismicSource):
     """
     Point source typology represents seismicity on a single geographical
@@ -56,6 +58,12 @@ class PointSource(SeismicSource):
         depth,  if one or more of hypocenter depth values is shallower
         than upper seismogenic depth or deeper than lower seismogenic depth.
     """
+    __slots__ = SeismicSource.__slots__ + '''rupture_mesh_spacing
+    magnitude_scaling_relationship rupture_aspect_ratio
+    upper_seismogenic_depth lower_seismogenic_depth
+    location nodal_plane_distribution hypocenter_distribution
+    '''.split()
+
     def __init__(self, source_id, name, tectonic_region_type,
                  mfd, rupture_mesh_spacing,
                  magnitude_scaling_relationship, rupture_aspect_ratio,
@@ -301,32 +309,42 @@ class PointSource(SeismicSource):
                 azimuth=(azimuth_up if vshift < 0 else azimuth_down)
             )
 
-        # now we can find four corner points of the rupture rectangle.
-        # we find the point that is on the same depth than the rupture
-        # center but lies on the right border of its surface:
-        right_center = rupture_center.point_at(
-            horizontal_distance=rup_length / 2.0,
-            vertical_increment=0, azimuth=azimuth_right
+        # from the rupture center we can now compute the coordinates of the
+        # four coorners by moving along the diagonals of the plane. This seems
+        # to be better then moving along the perimeter, because in this case
+        # errors are accumulated that induce distorsions in the shape with
+        # consequent raise of exceptions when creating PlanarSurface objects
+        # theta is the angle between the diagonal of the surface projection
+        # and the line passing through the rupture center and parallel to the
+        # top and bottom edges. Theta is zero for vertical ruptures (because
+        # rup_proj_width is zero)
+        theta = math.degrees(
+            math.atan((rup_proj_width / 2.) / (rup_length / 2.))
         )
-        # than we get the right bottom corner:
-        right_bottom = right_center.point_at(
-            horizontal_distance=rup_proj_width / 2.0,
-            vertical_increment=rup_proj_height / 2.0,
-            azimuth=azimuth_down
+        hor_dist = math.sqrt(
+            (rup_length / 2.) ** 2 + (rup_proj_width / 2.) ** 2
         )
-        # and other three points can be easily found by stepping from
-        # already known points horizontally only by rupture length
-        # (to get to left point from right one) or horizontally and
-        # vertically (to get to top edge from bottom).
-        right_top = right_bottom.point_at(horizontal_distance=rup_proj_width,
-                                          vertical_increment=-rup_proj_height,
-                                          azimuth=azimuth_up)
-        left_top = right_top.point_at(horizontal_distance=rup_length,
-                                      vertical_increment=0,
-                                      azimuth=azimuth_left)
-        left_bottom = right_bottom.point_at(horizontal_distance=rup_length,
-                                            vertical_increment=0,
-                                            azimuth=azimuth_left)
+
+        left_top = rupture_center.point_at(
+            horizontal_distance=hor_dist,
+            vertical_increment=-rup_proj_height / 2,
+            azimuth=(nodal_plane.strike + 180 + theta) % 360
+        )
+        right_top = rupture_center.point_at(
+            horizontal_distance=hor_dist,
+            vertical_increment=-rup_proj_height / 2,
+            azimuth=(nodal_plane.strike - theta) % 360
+        )
+        left_bottom = rupture_center.point_at(
+            horizontal_distance=hor_dist,
+            vertical_increment=rup_proj_height / 2,
+            azimuth=(nodal_plane.strike + 180 - theta) % 360
+        )
+        right_bottom = rupture_center.point_at(
+            horizontal_distance=hor_dist,
+            vertical_increment=rup_proj_height / 2,
+            azimuth=(nodal_plane.strike + theta) % 360
+        )
 
         return PlanarSurface(self.rupture_mesh_spacing, nodal_plane.strike,
                              nodal_plane.dip, left_top, right_top,
