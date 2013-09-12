@@ -36,7 +36,7 @@ class EvenlyDiscretizedMFD(BaseMFD):
         annual occurrence rates. The resulting histogram has as many bins
         as this list length.
     """
-    MODIFICATIONS = set('set_occurrence_rates')
+    MODIFICATIONS = set(('set_occurrence_rates',))
     __slots__ = 'min_mag bin_width occurrence_rates'.split()
 
     def __init__(self, min_mag, bin_width, occurrence_rates):
@@ -93,5 +93,5 @@ class EvenlyDiscretizedMFD(BaseMFD):
             change the maximum magnitude if the length of the list is
             different from the current length.
         """
-        self.occurrence_rates = list(occurrence_rates)
+        self.occurrence_rates = map(float, occurrence_rates)
         self.check_constraints()
