@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-Module exports :class:`BooreAtkinson2008`.
+Module exports :class:`BooreAtkinson2008Prime`.
 """
 from __future__ import division
 
@@ -25,13 +25,17 @@ from openquake.hazardlib import const
 from openquake.hazardlib.imt import PGA, PGV, SA
 
 
-class BooreAtkinson2008(GMPE):
+class BooreAtkinson2008Prime(GMPE):
     """
     Implements GMPE developed by David M. Boore and Gail M. Atkinson
     and published as "Ground-Motion Prediction Equations for the
     Average Horizontal Component of PGA, PGV, and 5%-Damped PSA
     at Spectral Periods between 0.01 and 10.0 s" (2008, Earthquake Spectra,
-    Volume 24, No. 1, pages 99-138).
+    Volume 24, No. 1, pages 99-138). Implements modifications developed by
+    Gail M. Atkinson and David M. Boore and published as "Modifications to
+    Existing Ground-Motion Prediction Equations in Light of New Data" (2001,
+    Bulleting of the Seismological Society of America, Volume 101,
+    pages 1121-1135).
     """
     #: Supported tectonic region type is active shallow crust, see
     #: paragraph 'Introduction', page 99.
@@ -101,6 +105,8 @@ class BooreAtkinson2008(GMPE):
                 self._compute_distance_scaling(rup, dists, C) + \
                 self._get_site_amplification_linear(sites, C_SR) + \
                 self._get_site_amplification_non_linear(sites, pga4nl, C_SR)
+        #: Atkinson and Boore (2011) modifications
+        self._compute_modifications(rup.mag, dists.rjb, mean)
 
         stddevs = self._get_stddevs(C, stddev_types, num_sites=len(sites.vs30))
 
@@ -266,6 +272,14 @@ class BooreAtkinson2008(GMPE):
         fnl[idx] = bnl[idx] * np.log(pga4nl[idx] / 0.1)
 
         return fnl
+
+    def _compute_modifications(self, mag, rjb, mean):
+        """
+        Compute Atkins
+        on and Boore (2011) modifications, equation (5), pag 1126.
+        """
+        mean[:] += np.log(10 ** (max([0, 3.888 - 0.674 * mag])
+            - max([0, 2.933 - 0.510 * mag]) * np.log10(rjb + 10)))
 
     #: Coefficient table is constructed from values in tables 6, 7 and 8
     #: (pages 119, 120, 121). Spectral acceleration is defined for damping
