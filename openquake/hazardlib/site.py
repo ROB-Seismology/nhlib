@@ -42,6 +42,9 @@ class Site(object):
     :param z2pt5:
         Vertical distance from earth surface to the layer where seismic waves
         start to propagate with a speed above 2.5 km/sec, in km.
+    :param kappa:
+        Kappa value in seconds
+	
     :param id:
         Optional parameter with default None. If given, it should be an
         integer identifying the site univocally.
@@ -53,9 +56,9 @@ class Site(object):
 
         :class:`Sites <Site>` are pickleable
     """
-    __slots__ = 'location vs30 vs30measured z1pt0 z2pt5 id'.split()
+    __slots__ = 'location vs30 vs30measured z1pt0 z2pt5 kappa id'.split()
 
-    def __init__(self, location, vs30, vs30measured, z1pt0, z2pt5, id=None):
+    def __init__(self, location, vs30, vs30measured, z1pt0, z2pt5, kappa=0., id=None):
         if not vs30 > 0:
             raise ValueError('vs30 must be positive')
         if not z1pt0 > 0:
@@ -67,6 +70,7 @@ class Site(object):
         self.vs30measured = vs30measured
         self.z1pt0 = z1pt0
         self.z2pt5 = z2pt5
+        self.kappa = kappa
         self.id = id
 
     def __str__(self):
@@ -79,9 +83,9 @@ Vs30=760.0000, Vs30Measured=True, Depth1.0km=100.0000, Depth2.5km=5.0000>'
         """
         return (
             "<Location=%s, Vs30=%.4f, Vs30Measured=%r, Depth1.0km=%.4f, "
-            "Depth2.5km=%.4f>") % (
+            "Depth2.5km=%.4f, kappa=%.3f>") % (
                 self.location, self.vs30, self.vs30measured, self.z1pt0,
-                self.z2pt5)
+                self.z2pt5, self.kappa)
 
     def __repr__(self):
         """
@@ -119,6 +123,7 @@ class SiteCollection(object):
         self.vs30measured = numpy.zeros(len(sites), dtype=bool)
         self.z1pt0 = self.vs30.copy()
         self.z2pt5 = self.vs30.copy()
+        self.kappa = self.vs30.copy()
         lons = self.vs30.copy()
         lats = self.vs30.copy()
 
@@ -127,6 +132,7 @@ class SiteCollection(object):
             self.vs30measured[i] = sites[i].vs30measured
             self.z1pt0[i] = sites[i].z1pt0
             self.z2pt5[i] = sites[i].z2pt5
+            self.kappa[i] = sites[i].kappa
             lons[i] = sites[i].location.longitude
             lats[i] = sites[i].location.latitude
 
@@ -139,7 +145,7 @@ class SiteCollection(object):
         # subsequent calculation. note that this doesn't protect arrays from
         # being changed by calling itemset()
         for arr in (self.vs30, self.vs30measured, self.z1pt0, self.z2pt5,
-                    self.mesh.lons, self.mesh.lats):
+                    self.kappa, self.mesh.lons, self.mesh.lats):
             arr.flags.writeable = False
 
     def __iter__(self):
@@ -149,7 +155,7 @@ class SiteCollection(object):
         """
         for i, location in enumerate(self.mesh):
             yield Site(location, self.vs30[i], self.vs30measured[i],
-                       self.z1pt0[i], self.z2pt5[i])
+                       self.z1pt0[i], self.z2pt5[i], self.kappa[i])
 
     def expand(self, data, total_sites, placeholder):
         """
@@ -253,6 +259,7 @@ class SiteCollection(object):
         col.vs30measured = self.vs30measured.take(indices)
         col.z1pt0 = self.z1pt0.take(indices)
         col.z2pt5 = self.z2pt5.take(indices)
+        col.kappa = self.kappa.take(indices)
         col.mesh = Mesh(self.mesh.lons.take(indices),
                         self.mesh.lats.take(indices),
                         depths=None)

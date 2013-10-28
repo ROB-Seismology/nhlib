@@ -72,6 +72,8 @@ class IMC(ConstantContainer):
     GREATER_OF_TWO_HORIZONTAL = 'Greater of two horizontal'
     #: The vertical component.
     VERTICAL = 'Vertical'
+    #: Both horizontal components independently.
+    BOTH_HORIZONTAL = 'Both horizontal'
 
 
 class StdDev(ConstantContainer):
