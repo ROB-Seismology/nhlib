@@ -87,9 +87,14 @@ class ToroEtAl2002adjusted(GMPE):
         assert all(stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
                    for stddev_type in stddev_types)
 
-        #TODO: find a way to allow different vs30 and/or kappa for different sites
-        C = self.COEFFS[(int(sites.vs30[0]), np.round(sites.kappa[0], decimals=3))][imt]
-        mean = self._compute_mean(C, rup.mag, dists.rjb)
+        ## Allow different (vs30, kappa) for different sites
+        mean = np.zeros_like(sites.vs30)
+        vs30_kappa = set(zip(sites.vs30, sites.kappa))
+        for (vs30, kappa) in vs30_kappa:
+            C = self.COEFFS[(int(vs30), np.round(kappa, decimals=3))][imt]
+            idxs = (sites.vs30 == vs30) * (sites.kappa == kappa)
+        self._compute_mean(C, rup.mag, dists.rjb, idxs, mean)
+        ## Coefficients for standard deviations are independent of (vs30, kappa)
         stddevs = self._compute_stddevs(C, rup.mag, dists.rjb, imt,
                                         stddev_types)
 
@@ -131,14 +136,14 @@ class ToroEtAl2002adjusted(GMPE):
                 (C['c5'] - C['c4']) *
                 np.maximum(np.log(RM / 100), 0) - C['c6'] * RM)
 
-    def _compute_mean(self, C, mag, rjb):
+    def _compute_mean(self, C, mag, rjb, idxs, mean):
         """
         Compute mean value according to equation 3, page 46.
         """
-        mean = (C['c1'] +
+        mean[idxs] = (C['c1'] +
                 self._compute_term1(C, mag) +
-                self._compute_term2(C, mag, rjb))
-        return mean
+                self._compute_term2(C, mag, rjb[idxs]))
+        #return mean
 
     def _compute_stddevs(self, C, mag, rjb, imt, stddev_types):
         """

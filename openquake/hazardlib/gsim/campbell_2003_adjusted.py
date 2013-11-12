@@ -84,9 +84,14 @@ class Campbell2003adjusted(GMPE):
         assert all(stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
                    for stddev_type in stddev_types)
 
-        #TODO: find a way to allow different vs30 and/or kappa for different sites
-        C = self.COEFFS[(int(sites.vs30[0]), np.round(sites.kappa[0], decimals=3))][imt]
-        mean = self._compute_mean(C, rup.mag, dists.rrup)
+        ## Allow different (vs30, kappa) for different sites
+        mean = np.zeros_like(sites.vs30)
+        vs30_kappa = set(zip(sites.vs30, sites.kappa))
+        for (vs30, kappa) in vs30_kappa:
+            C = self.COEFFS[(int(vs30), np.round(kappa, decimals=3))][imt]
+            idxs = (sites.vs30 == vs30) * (sites.kappa == kappa)
+        self._compute_mean(C, rup.mag, dists.rrup, idxs, mean)
+        ## Coefficients for standard deviations are independent of (vs30, kappa)
         stddevs = self._get_stddevs(C, stddev_types, rup.mag,
                                     dists.rrup.shape[0])
 
@@ -95,15 +100,15 @@ class Campbell2003adjusted(GMPE):
 
         return mean, stddevs
 
-    def _compute_mean(self, C, mag, rrup):
+    def _compute_mean(self, C, mag, rrup, idxs, mean):
         """
         Compute mean value according to equation 30, page 1021.
         """
-        mean = (C['c1'] +
+        mean[idxs] = (C['c1'] +
                 self._compute_term1(C, mag) +
-                self._compute_term2(C, mag, rrup) +
-                self._compute_term3(C, rrup))
-        return mean
+                self._compute_term2(C, mag, rrup[idxs]) +
+                self._compute_term3(C, rrup[idxs]))
+        #return mean
 
     def _get_stddevs(self, C, stddev_types, mag, num_sites):
         """
