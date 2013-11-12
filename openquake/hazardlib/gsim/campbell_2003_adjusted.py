@@ -65,7 +65,7 @@ class Campbell2003adjusted(GMPE):
 
     #: Required site parameters is Vs30.
     #: See paragraph 'Equations for soil sites', p. 2200
-    REQUIRES_SITES_PARAMETERS = set(('vs30', ))
+    REQUIRES_SITES_PARAMETERS = set(('vs30', 'kappa'))
 
     #: Required rupture parameter is only magnitude, see equation 30 page
     #: 1021.

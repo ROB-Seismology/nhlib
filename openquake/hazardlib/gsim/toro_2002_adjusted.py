@@ -70,7 +70,7 @@ class ToroEtAl2002adjusted(GMPE):
 
     #: Required site parameters is Vs30.
     #: See paragraph 'Equations for soil sites', p. 2200
-    REQUIRES_SITES_PARAMETERS = set(('vs30', ))
+    REQUIRES_SITES_PARAMETERS = set(('vs30', 'kappa'))
 
     #: Required rupture parameter is only magnitude.
     REQUIRES_RUPTURE_PARAMETERS = set(('mag', ))
