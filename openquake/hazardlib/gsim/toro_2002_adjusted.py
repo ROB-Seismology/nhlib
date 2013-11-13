@@ -93,7 +93,7 @@ class ToroEtAl2002adjusted(GMPE):
         for (vs30, kappa) in vs30_kappa:
             C = self.COEFFS[(int(vs30), np.round(kappa, decimals=3))][imt]
             idxs = (sites.vs30 == vs30) * (sites.kappa == kappa)
-        self._compute_mean(C, rup.mag, dists.rjb, idxs, mean)
+            self._compute_mean(C, rup.mag, dists.rjb, idxs, mean)
         ## Coefficients for standard deviations are independent of (vs30, kappa)
         stddevs = self._compute_stddevs(C, rup.mag, dists.rjb, imt,
                                         stddev_types)

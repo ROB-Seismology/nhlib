@@ -90,7 +90,7 @@ class Campbell2003adjusted(GMPE):
         for (vs30, kappa) in vs30_kappa:
             C = self.COEFFS[(int(vs30), np.round(kappa, decimals=3))][imt]
             idxs = (sites.vs30 == vs30) * (sites.kappa == kappa)
-        self._compute_mean(C, rup.mag, dists.rrup, idxs, mean)
+            self._compute_mean(C, rup.mag, dists.rrup, idxs, mean)
         ## Coefficients for standard deviations are independent of (vs30, kappa)
         stddevs = self._get_stddevs(C, stddev_types, rup.mag,
                                     dists.rrup.shape[0])
