@@ -229,7 +229,6 @@ class AtkinsonBoore2006Prime(BooreAtkinson2008):
         ## VS30=2000 m/s
         idxs = -soft_soil_idxs  * (sites.vs30 < 2000.0)
         idxs = np.arange(len(mean_bc))[idxs]
-        print idxs
         for idx in idxs:
             mean_bc[idx] = np.interp(sites.vs30[idx], [760.,2000.], [mean_bc[idx], mean_hr[idx]])
 
