@@ -97,14 +97,17 @@ class BooreAtkinson2008Prime(GMPE):
         # Mref, Rref values are given in the caption to table 6, pag 119.
         if imt == PGA():
             # avoid recomputing PGA on rock, just add site terms
-            mean = np.log(pga4nl) + \
-                self._get_site_amplification_linear(sites, C_SR) + \
-                self._get_site_amplification_non_linear(sites, pga4nl, C_SR)
+            mean = np.log(pga4nl) #+ \
+                #self._get_site_amplification_linear(sites, C_SR) + \
+                #self._get_site_amplification_non_linear(sites, pga4nl, C_SR)
         else:
             mean = self._compute_magnitude_scaling(rup, C) + \
-                self._compute_distance_scaling(rup, dists, C) + \
-                self._get_site_amplification_linear(sites, C_SR) + \
-                self._get_site_amplification_non_linear(sites, pga4nl, C_SR)
+                self._compute_distance_scaling(rup, dists, C) #+ \
+                #self._get_site_amplification_linear(sites, C_SR) + \
+                #self._get_site_amplification_non_linear(sites, pga4nl, C_SR)
+        ## Site amplification
+        self._compute_soil_amplification(C_SR, sites, pga4nl, mean)
+
         #: Atkinson and Boore (2011) modifications
         self._compute_modifications(rup.mag, dists.rjb, mean)
 
@@ -175,6 +178,21 @@ class BooreAtkinson2008Prime(GMPE):
             NS = 1
 
         return U, SS, NS, RS
+
+    def _compute_soil_amplification(self, C, sites, pga4nl, mean):
+        """
+        Compute soil amplification, that is sum of linear and non-linear
+        terms, and add to mean values for non hard rock sites.
+        According to the paper, page 113, "the amplification functions
+        are probably reasonable for VS30 up to 1300 m/s, but should not
+        be applied for very hard rock sites (Vs30 >= 1500 m/s)",
+        hence we use VS30 >= 1500, which is lower than in AtkinsonBoore2006.
+        """
+        sal = self._get_site_amplification_linear(sites, C)
+        sanl = self._get_site_amplification_non_linear(sites, pga4nl, C)
+
+        idxs = sites.vs30 < 1500.0
+        mean[idxs] = mean[idxs] + sal[idxs] + sanl[idxs]
 
     def _get_site_amplification_linear(self, sites, C):
         """

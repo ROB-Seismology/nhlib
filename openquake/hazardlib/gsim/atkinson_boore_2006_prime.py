@@ -28,6 +28,12 @@ from openquake.hazardlib import const
 from openquake.hazardlib.imt import PGA, PGV, SA
 
 
+## Compute these logs only once
+log_e = np.log10(np.e)
+ln10, ln100 = np.log(10), np.log(100)
+ln_g = np.log(g)
+
+
 class AtkinsonBoore2006Prime(BooreAtkinson2008):
     """
     Implements GMPE developed by Gail M. Atkinson and David M. Boore and
@@ -107,26 +113,34 @@ class AtkinsonBoore2006Prime(BooreAtkinson2008):
         pga_bc = np.zeros_like(sites.vs30)
         self._compute_mean(self.COEFFS_BC[PGA()], f0, f1, f2, rup.mag,
                            rrup, sites, sites.vs30 < 2000.0, pga_bc)
-        pga_bc = (10 ** pga_bc) * 1e-2 / g
+        #pga_bc = (10 ** pga_bc) * 1e-2 / g
+        pga_bc = pga_bc * (ln10 - ln_g - ln100)
 
         # compute mean values for hard-rock sites (vs30 >= 2000),
         # and non-hard-rock sites (vs30 < 2000) and add soil amplification
         # term
-        mean = np.zeros_like(sites.vs30)
+        mean_hr = np.zeros_like(sites.vs30)
+        mean_bc = np.zeros_like(sites.vs30)
+        ## Compute mean hard-rock for sites with VS30 > Vref
         self._compute_mean(C_HR, f0, f1, f2, rup.mag, rrup, sites,
-                           sites.vs30 >= 2000.0, mean)
+                           sites.vs30 > 760.0, mean_hr)
+        ## Compute mean B/C for sites with VS30 < 2000
+        non_hr_idxs = sites.vs30 < 2000.0
         self._compute_mean(C_BC, f0, f1, f2, rup.mag, rrup, sites,
-                           sites.vs30 < 2000.0, mean)
-        self._compute_soil_amplification(C_SR, sites, pga_bc, mean)
+                           non_hr_idxs, mean_bc)
+        self._compute_soil_amplification(C_SR, sites, pga_bc, mean_bc, mean_hr)
+        mean = mean_hr
+        mean[non_hr_idxs] = mean_bc[non_hr_idxs]
         # compute adjustment for magnitude dependend stress
         self._compute_stress_drop_adjustment(C_SD, rup.mag, mean)
 
         # convert from base 10 to base e
         if imt == PGV():
-            mean = np.log(10 ** mean)
+            mean *= ln10
         else:
             # convert from cm/s**2 to g
-            mean = np.log((10 ** mean) * 1e-2 / g)
+            #mean = np.log((10 ** mean) * 1e-2 / g)
+            mean = mean * ln10 - ln_g - ln100
 
         stddevs = self._get_stddevs(stddev_types, num_sites=len(sites.vs30))
 
@@ -188,20 +202,37 @@ class AtkinsonBoore2006Prime(BooreAtkinson2008):
                       (C['c8'] + C['c9'] * mag) * f0[idxs] +
                       C['c10'] * rrup[idxs])
 
-    def _compute_soil_amplification(self, C, sites, pga_bc, mean):
+    def _compute_soil_amplification(self, C, sites, pga_bc, mean_bc, mean_hr):
         """
         Compute soil amplification, that is S term in equation (5), p. 2191,
         and add to mean values for non hard rock sites.
+
+        :param mean_bc:
+            array containing mean values for B/C boundary,
+            will be modified in place
+        :param mean_hr:
+            array containing mean values for hard rock,
+            is only used for sites wtih VS30 between 760 (B/C) and 2000 m/s
         """
         # convert from base e (as defined in BA2008) to base 10 (as used in
         # AB2006)
-        sal = np.log10(np.exp(self._get_site_amplification_linear(sites, C)))
-        sanl = np.log10(np.exp(
-            self._get_site_amplification_non_linear(sites, pga_bc, C)))
+        sal = self._get_site_amplification_linear(sites, C) * log_e
+        sanl = self._get_site_amplification_non_linear(sites, pga_bc, C) * log_e
 
-        idxs = sites.vs30 < 2000.0
-        mean[idxs] = mean[idxs] + sal[idxs] + sanl[idxs]
-    
+        soft_soil_idxs = sites.vs30 <= 760.0
+        mean_bc[soft_soil_idxs] += (sal[soft_soil_idxs] + sanl[soft_soil_idxs])
+
+        ## According to the notes accompanying the program by David Boore,
+        ## values of ground motion for VS30 between 800 m/s and 2000 m/s
+        ## can be obtained by interpolating between the B/C value of 760 m/s
+        ## and the hard rock value, assuming it to represent motions for
+        ## VS30=2000 m/s
+        idxs = -soft_soil_idxs  * (sites.vs30 < 2000.0)
+        idxs = np.arange(len(mean_bc))[idxs]
+        print idxs
+        for idx in idxs:
+            mean_bc[idx] = np.interp(sites.vs30[idx], [760.,2000.], [mean_bc[idx], mean_hr[idx]])
+
     def _compute_stress_drop_adjustment(self, C, mag, mean):
         """
         Compute magnitude dependend stress drop adjustment. See equation (6),
