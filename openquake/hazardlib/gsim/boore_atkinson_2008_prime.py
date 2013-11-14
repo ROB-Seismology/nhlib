@@ -183,23 +183,23 @@ class BooreAtkinson2008Prime(GMPE):
         """
         Compute soil amplification, that is sum of linear and non-linear
         terms, and add to mean values for non hard rock sites.
-        According to the paper, page 113, "the amplification functions
-        are probably reasonable for VS30 up to 1300 m/s, but should not
-        be applied for very hard rock sites (Vs30 >= 1500 m/s)",
-        hence we use VS30 >= 1500, which is lower than in AtkinsonBoore2006.
         """
         sal = self._get_site_amplification_linear(sites, C)
         sanl = self._get_site_amplification_non_linear(sites, pga4nl, C)
 
-        idxs = sites.vs30 < 1500.0
-        mean[idxs] = mean[idxs] + sal[idxs] + sanl[idxs]
+        mean += (sal + sanl)
 
     def _get_site_amplification_linear(self, sites, C):
         """
         Compute site amplification linear term,
         equation (7), pag 107.
+
+        According to the paper, page 113, "the amplification functions
+        are probably reasonable for VS30 up to 1300 m/s, but should not
+        be applied for very hard rock sites (Vs30 >= 1500 m/s)",
+        hence we clip at VS30 = 1500.
         """
-        return C['blin'] * np.log(sites.vs30 / 760.0)
+        return C['blin'] * np.log(sites.vs30.clip(max=1500) / 760.0)
 
     def _get_pga_on_rock(self, rup, dists, _C):
         """
