@@ -75,6 +75,13 @@ class Campbell2003adjusted(GMPE):
     #: 30 page 1021.
     REQUIRES_DISTANCES = set(('rrup', ))
 
+    DEFINED_FOR_VS30 = np.array([800, 2000, 2600, 2800])
+    DEFINED_FOR_KAPPA = {800: np.array([0.02, 0.03, 0.05]),
+                        2000: np.array([0.002, 0.006, 0.01]),
+                        2600: np.array([0.002, 0.006, 0.01]),
+                        2800: np.array([0.002, 0.006, 0.01])
+                        }
+
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
         """
         See :meth:`superclass method
@@ -88,7 +95,10 @@ class Campbell2003adjusted(GMPE):
         mean = np.zeros_like(sites.vs30)
         vs30_kappa = set(zip(sites.vs30, sites.kappa))
         for (vs30, kappa) in vs30_kappa:
-            C = self.COEFFS[(int(vs30), np.round(kappa, decimals=3))][imt]
+            ## Determine nearest vs30 and kappa that is defined
+            nearest_vs30 = self.DEFINED_FOR_VS30[np.abs(self.DEFINED_FOR_VS30 - vs30).argmin()]
+            nearest_kappa = self.DEFINED_FOR_KAPPA[nearest_vs30][np.abs(self.DEFINED_FOR_KAPPA[nearest_vs30] - kappa).argmin()]
+            C = self.COEFFS[(nearest_vs30, nearest_kappa)][imt]
             idxs = (sites.vs30 == vs30) * (sites.kappa == kappa)
             self._compute_mean(C, rup.mag, dists.rrup, idxs, mean)
         ## Coefficients for standard deviations are independent of (vs30, kappa)
