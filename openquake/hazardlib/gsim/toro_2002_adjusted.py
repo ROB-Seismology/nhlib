@@ -70,13 +70,20 @@ class ToroEtAl2002adjusted(GMPE):
 
     #: Required site parameters is Vs30.
     #: See paragraph 'Equations for soil sites', p. 2200
-    REQUIRES_SITES_PARAMETERS = set(('vs30', ))
+    REQUIRES_SITES_PARAMETERS = set(('vs30', 'kappa'))
 
     #: Required rupture parameter is only magnitude.
     REQUIRES_RUPTURE_PARAMETERS = set(('mag', ))
 
     #: Required distance measure is rjb, see equation 4, page 46.
     REQUIRES_DISTANCES = set(('rjb', ))
+
+    DEFINED_FOR_VS30 = np.array([800, 2000, 2600, 2800])
+    DEFINED_FOR_KAPPA = {800: np.array([0.02, 0.03, 0.05]),
+                        2000: np.array([0.002, 0.005, 0.01]),
+                        2600: np.array([0.002, 0.005, 0.01]),
+                        2800: np.array([0.002, 0.005, 0.01])
+                        }
 
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
         """
@@ -87,9 +94,17 @@ class ToroEtAl2002adjusted(GMPE):
         assert all(stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
                    for stddev_type in stddev_types)
 
-        #TODO: find a way to allow different vs30 and/or kappa for different sites
-        C = self.COEFFS[(int(sites.vs30[0]), np.round(sites.kappa[0], decimals=3))][imt]
-        mean = self._compute_mean(C, rup.mag, dists.rjb)
+        ## Allow different (vs30, kappa) for different sites
+        mean = np.zeros_like(sites.vs30)
+        vs30_kappa = set(zip(sites.vs30, sites.kappa))
+        for (vs30, kappa) in vs30_kappa:
+            ## Determine nearest vs30 and kappa that is defined
+            nearest_vs30 = self.DEFINED_FOR_VS30[np.abs(self.DEFINED_FOR_VS30 - vs30).argmin()]
+            nearest_kappa = self.DEFINED_FOR_KAPPA[nearest_vs30][np.abs(self.DEFINED_FOR_KAPPA[nearest_vs30] - kappa).argmin()]
+            C = self.COEFFS[(nearest_vs30, nearest_kappa)][imt]
+            idxs = (sites.vs30 == vs30) * (sites.kappa == kappa)
+            self._compute_mean(C, rup.mag, dists.rjb, idxs, mean)
+        ## Coefficients for standard deviations are independent of (vs30, kappa)
         stddevs = self._compute_stddevs(C, rup.mag, dists.rjb, imt,
                                         stddev_types)
 
@@ -131,14 +146,14 @@ class ToroEtAl2002adjusted(GMPE):
                 (C['c5'] - C['c4']) *
                 np.maximum(np.log(RM / 100), 0) - C['c6'] * RM)
 
-    def _compute_mean(self, C, mag, rjb):
+    def _compute_mean(self, C, mag, rjb, idxs, mean):
         """
         Compute mean value according to equation 3, page 46.
         """
-        mean = (C['c1'] +
+        mean[idxs] = (C['c1'] +
                 self._compute_term1(C, mag) +
-                self._compute_term2(C, mag, rjb))
-        return mean
+                self._compute_term2(C, mag, rjb[idxs]))
+        #return mean
 
     def _compute_stddevs(self, C, mag, rjb, imt, stddev_types):
         """

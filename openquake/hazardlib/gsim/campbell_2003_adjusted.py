@@ -65,7 +65,7 @@ class Campbell2003adjusted(GMPE):
 
     #: Required site parameters is Vs30.
     #: See paragraph 'Equations for soil sites', p. 2200
-    REQUIRES_SITES_PARAMETERS = set(('vs30', ))
+    REQUIRES_SITES_PARAMETERS = set(('vs30', 'kappa'))
 
     #: Required rupture parameter is only magnitude, see equation 30 page
     #: 1021.
@@ -74,6 +74,13 @@ class Campbell2003adjusted(GMPE):
     #: Required distance measure is closest distance to rupture, see equation
     #: 30 page 1021.
     REQUIRES_DISTANCES = set(('rrup', ))
+
+    DEFINED_FOR_VS30 = np.array([800, 2000, 2600, 2800])
+    DEFINED_FOR_KAPPA = {800: np.array([0.02, 0.03, 0.05]),
+                        2000: np.array([0.002, 0.006, 0.01]),
+                        2600: np.array([0.002, 0.006, 0.01]),
+                        2800: np.array([0.002, 0.006, 0.01])
+                        }
 
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
         """
@@ -84,9 +91,17 @@ class Campbell2003adjusted(GMPE):
         assert all(stddev_type in self.DEFINED_FOR_STANDARD_DEVIATION_TYPES
                    for stddev_type in stddev_types)
 
-        #TODO: find a way to allow different vs30 and/or kappa for different sites
-        C = self.COEFFS[(int(sites.vs30[0]), np.round(sites.kappa[0], decimals=3))][imt]
-        mean = self._compute_mean(C, rup.mag, dists.rrup)
+        ## Allow different (vs30, kappa) for different sites
+        mean = np.zeros_like(sites.vs30)
+        vs30_kappa = set(zip(sites.vs30, sites.kappa))
+        for (vs30, kappa) in vs30_kappa:
+            ## Determine nearest vs30 and kappa that is defined
+            nearest_vs30 = self.DEFINED_FOR_VS30[np.abs(self.DEFINED_FOR_VS30 - vs30).argmin()]
+            nearest_kappa = self.DEFINED_FOR_KAPPA[nearest_vs30][np.abs(self.DEFINED_FOR_KAPPA[nearest_vs30] - kappa).argmin()]
+            C = self.COEFFS[(nearest_vs30, nearest_kappa)][imt]
+            idxs = (sites.vs30 == vs30) * (sites.kappa == kappa)
+            self._compute_mean(C, rup.mag, dists.rrup, idxs, mean)
+        ## Coefficients for standard deviations are independent of (vs30, kappa)
         stddevs = self._get_stddevs(C, stddev_types, rup.mag,
                                     dists.rrup.shape[0])
 
@@ -95,15 +110,15 @@ class Campbell2003adjusted(GMPE):
 
         return mean, stddevs
 
-    def _compute_mean(self, C, mag, rrup):
+    def _compute_mean(self, C, mag, rrup, idxs, mean):
         """
         Compute mean value according to equation 30, page 1021.
         """
-        mean = (C['c1'] +
+        mean[idxs] = (C['c1'] +
                 self._compute_term1(C, mag) +
-                self._compute_term2(C, mag, rrup) +
-                self._compute_term3(C, rrup))
-        return mean
+                self._compute_term2(C, mag, rrup[idxs]) +
+                self._compute_term3(C, rrup[idxs]))
+        #return mean
 
     def _get_stddevs(self, C, stddev_types, mag, num_sites):
         """

@@ -97,14 +97,17 @@ class BooreAtkinson2008Prime(GMPE):
         # Mref, Rref values are given in the caption to table 6, pag 119.
         if imt == PGA():
             # avoid recomputing PGA on rock, just add site terms
-            mean = np.log(pga4nl) + \
-                self._get_site_amplification_linear(sites, C_SR) + \
-                self._get_site_amplification_non_linear(sites, pga4nl, C_SR)
+            mean = np.log(pga4nl) #+ \
+                #self._get_site_amplification_linear(sites, C_SR) + \
+                #self._get_site_amplification_non_linear(sites, pga4nl, C_SR)
         else:
             mean = self._compute_magnitude_scaling(rup, C) + \
-                self._compute_distance_scaling(rup, dists, C) + \
-                self._get_site_amplification_linear(sites, C_SR) + \
-                self._get_site_amplification_non_linear(sites, pga4nl, C_SR)
+                self._compute_distance_scaling(rup, dists, C) #+ \
+                #self._get_site_amplification_linear(sites, C_SR) + \
+                #self._get_site_amplification_non_linear(sites, pga4nl, C_SR)
+        ## Site amplification
+        self._compute_soil_amplification(C_SR, sites, pga4nl, mean)
+
         #: Atkinson and Boore (2011) modifications
         self._compute_modifications(rup.mag, dists.rjb, mean)
 
@@ -176,12 +179,27 @@ class BooreAtkinson2008Prime(GMPE):
 
         return U, SS, NS, RS
 
+    def _compute_soil_amplification(self, C, sites, pga4nl, mean):
+        """
+        Compute soil amplification, that is sum of linear and non-linear
+        terms, and add to mean values for non hard rock sites.
+        """
+        sal = self._get_site_amplification_linear(sites, C)
+        sanl = self._get_site_amplification_non_linear(sites, pga4nl, C)
+
+        mean += (sal + sanl)
+
     def _get_site_amplification_linear(self, sites, C):
         """
         Compute site amplification linear term,
         equation (7), pag 107.
+
+        According to the paper, page 113, "the amplification functions
+        are probably reasonable for VS30 up to 1300 m/s, but should not
+        be applied for very hard rock sites (Vs30 >= 1500 m/s)",
+        hence we clip at VS30 = 1500.
         """
-        return C['blin'] * np.log(sites.vs30 / 760.0)
+        return C['blin'] * np.log(sites.vs30.clip(max=1500) / 760.0)
 
     def _get_pga_on_rock(self, rup, dists, _C):
         """

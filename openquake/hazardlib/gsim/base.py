@@ -226,7 +226,6 @@ class GroundShakingIntensityModel(object):
             raise ValueError('truncation level must be zero, positive number '
                              'or None')
         self._check_imt(imt)
-
         if truncation_level == 0:
             # zero truncation mode, just compare imls to mean
             imls = self.to_distribution_values(imls)

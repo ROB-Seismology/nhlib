@@ -44,7 +44,6 @@ class Site(object):
         start to propagate with a speed above 2.5 km/sec, in km.
     :param kappa:
         Kappa value in seconds
-	
     :param id:
         Optional parameter with default None. If given, it should be an
         integer identifying the site univocally.
