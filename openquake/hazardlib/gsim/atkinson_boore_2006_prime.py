@@ -113,8 +113,7 @@ class AtkinsonBoore2006Prime(BooreAtkinson2008):
         pga_bc = np.zeros_like(sites.vs30)
         self._compute_mean(self.COEFFS_BC[PGA()], f0, f1, f2, rup.mag,
                            rrup, sites, sites.vs30 < 2000.0, pga_bc)
-        #pga_bc = (10 ** pga_bc) * 1e-2 / g
-        pga_bc = pga_bc * (ln10 - ln_g - ln100)
+        pga_bc = (10 ** pga_bc) * 1e-2 / g
 
         # compute mean values for hard-rock sites (vs30 >= 2000),
         # and non-hard-rock sites (vs30 < 2000) and add soil amplification
