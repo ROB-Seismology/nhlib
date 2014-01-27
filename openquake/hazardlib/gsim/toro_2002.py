@@ -126,7 +126,7 @@ class ToroEtAl2002(GMPE):
         """
         mean = (C['c1'] +
                 self._compute_term1(C, mag) +
-                self._compute_term2(C, mag, rjb))
+                self._compute_term2(C, mag, rjb.clip(min=1)))
         return mean
 
     def _compute_stddevs(self, C, mag, rjb, imt, stddev_types):

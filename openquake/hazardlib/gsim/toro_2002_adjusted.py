@@ -152,7 +152,7 @@ class ToroEtAl2002adjusted(GMPE):
         """
         mean[idxs] = (C['c1'] +
                 self._compute_term1(C, mag) +
-                self._compute_term2(C, mag, rjb[idxs]))
+                self._compute_term2(C, mag, rjb[idxs].clip(min=1)))
         #return mean
 
     def _compute_stddevs(self, C, mag, rjb, imt, stddev_types):
