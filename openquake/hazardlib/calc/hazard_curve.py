@@ -26,7 +26,8 @@ from openquake.hazardlib.calc import filters
 def hazard_curves_poissonian(
         sources, sites, imts, time_span, gsims, truncation_level,
         source_site_filter=filters.source_site_noop_filter,
-        rupture_site_filter=filters.rupture_site_noop_filter):
+        rupture_site_filter=filters.rupture_site_noop_filter,
+        cav_min=0.):
     """
     Compute hazard curves on a list of sites, given a set of seismic sources
     and a set of ground shaking intensity models (one per tectonic region type
@@ -68,6 +69,8 @@ def hazard_curves_poissonian(
     :param rupture_site_filter:
         Optional rupture-site filter function. See
         :mod:`openquake.hazardlib.calc.filters`.
+    :param cav_min:
+        float, CAV threshold in g.s (default: 0. = no CAV filtering).
 
     :returns:
         Dictionary mapping intensity measure type objects (same keys
@@ -92,8 +95,8 @@ def hazard_curves_poissonian(
                 gsim = gsims[rupture.tectonic_region_type]
                 sctx, rctx, dctx = gsim.make_contexts(r_sites, rupture)
                 for imt in imts:
-                    poes = gsim.get_poes(sctx, rctx, dctx, imt, imts[imt],
-                                         truncation_level)
+                    poes = gsim.get_poes_cav(sctx, rctx, dctx, imt, imts[imt],
+                                         truncation_level, cav_min=cav_min)
                     curves[imt] *= r_sites.expand(
                         (1 - prob) ** poes, total_sites, placeholder=1
                     )
