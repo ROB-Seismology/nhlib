@@ -247,7 +247,9 @@ class GroundShakingIntensityModel(object):
             else:
                 return _truncnorm_sf(truncation_level, values)
 
-    def get_poes_cav(self, sctx, rctx, dctx, imt, imls, truncation_level, cav_min=0.16, depsilon=0.02, eps_correlation_model="EUS"):
+    def get_poes_cav(self, sctx, rctx, dctx, imt, imls, truncation_level,
+                     cav_min=0.16, cav_max_mag=5.5, depsilon=0.02,
+                     eps_correlation_model="EUS"):
         """
         Calculate and return probabilities of exceedance (PoEs) of one or more
         intensity measure levels (IMLs) of one intensity measure type (IMT)
@@ -295,12 +297,15 @@ class GroundShakingIntensityModel(object):
             function of that truncated Gaussian applied to IMLs.
         :param cav_min:
             Float, CAV threshold (default: 0.16 g.s).
+        :param cav_max_mag:
+            Float, maximum magnitude to consider for CAV filtering
+            (default: 5.5)
         :param depsilon:
             Float, bin width used to discretize epsilon pga. Should be
             sufficiently small for PGA (default: 0.02).
         :param eps_correlation_model:
             Str, name of model used for correlation of epsilon values
-            of PGA and SA, either "WUS" or "EUS" (default: "EUS").
+            of PGA and SA, either "WUS" or "EUS" (default: "EUS")
 
         :returns:
             2-D float array, joint probabilities for each site (first
@@ -337,15 +342,19 @@ class GroundShakingIntensityModel(object):
                 # CAV filtering not supported
                 return _norm_sf(zvalues)
             else:
-                from cav import calc_CAV_exceedance_prob
                 sa_exceedance_prob = _truncnorm_sf(truncation_level, zvalues)
-                if cav_min == 0:
+                if cav_min == 0 or rctx.mag > cav_max_mag:
                     return sa_exceedance_prob
                 else:
+                    from cav import calc_CAV_exceedance_prob
                     ## Normally distributed epsilon values and corresponding probabilities
-                    norm = scipy.stats.truncnorm(-truncation_level, truncation_level)
-                    neps = int(truncation_level / depsilon) * 2 + 1
-                    eps_pga_array = numpy.linspace(-truncation_level, truncation_level, neps)
+                    if imt == imt_module.PGA():
+                        pga_truncation_level = truncation_level
+                    else:
+                        pga_truncation_level = truncation_level + 2
+                    norm = scipy.stats.truncnorm(-pga_truncation_level, pga_truncation_level)
+                    neps = int(pga_truncation_level / depsilon) * 2 + 1
+                    eps_pga_array = numpy.linspace(-pga_truncation_level, pga_truncation_level, neps)
                     prob_eps_array = norm.pdf(eps_pga_array) * depsilon
 
                     ## Pre-calculate CAV exceedance probabilities for epsilon PGA
@@ -369,7 +378,7 @@ class GroundShakingIntensityModel(object):
                             # TODO: check if loop over nsites can be removed
                             for d in range(nsites):
                                 idxs = numpy.where(ln_pga_eps_pga_array[e][d] > ln_imls)
-                                joint_exceedance_probs[d][idxs] += (prob_eps_array[e] * cav_exceedance_prob[e][d])
+                                joint_exceedance_probs[d][idxs] += (prob_eps_array[e] * cav_exceedance_prob[e, d])
 
                     else:
                         ## Correlation coefficients between PGA and SA (Table 3-1)
@@ -401,7 +410,7 @@ class GroundShakingIntensityModel(object):
                                 ## Eq. 4-2
                                 prob_sa_given_pga = 1.0 - ndtr(eps_sa_dot)
 
-                                joint_exceedance_probs[d] += (prob_eps_array[e] * cav_exceedance_prob[e][d] * prob_sa_given_pga)
+                                joint_exceedance_probs[d] += (prob_eps_array[e] * cav_exceedance_prob[e, d] * prob_sa_given_pga)
 
                         ## iml values close to truncation boundaries should have lower exceedance rates
                         ## This also constrains iml between (-truncation_level, truncation_level)
