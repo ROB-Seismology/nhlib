@@ -124,6 +124,74 @@ def disaggregation_poissonian(
     return bin_edges, diss_matrix
 
 
+def disaggregation_poissonian_multi(
+        sources, sitecol, site_imtls, gsims, time_span, truncation_level,
+        n_epsilons, mag_bin_width, dist_bin_width, coord_bin_width,
+        source_site_filter=filters.source_site_noop_filter,
+        rupture_site_filter=filters.rupture_site_noop_filter):
+    """
+    Disaggregation for multiple sites, multiple imt's per site,
+    and multiple iml's per imt.
+
+    :param sitecol:
+        instance of :class:`SiteCollection`
+    :param site_itmls:
+        dictionary mapping site (lon, lat) tuples to dictionaries
+        in turn mapping instances of :class:`IMT` to 1-D arrays of
+        iml's. Note that number of iml's should be the same for
+        each imt.
+
+    Other parameters are similar to :func:`disaggregation_poissonian`
+
+    :return:
+        iterator over each site, yielding (site, bin_edges, diss_matrix)
+        bin_edges is identical to the bin_edges returned by
+        :func:`disaggregation_poissonian`
+        diss_matrix is an 8-D array. The first two dimensions correspond
+        to imt and iml, respectively. The other dimensions are the same
+        as in the diss_matrix returned by :func:`disaggregation_poissonian`
+        If a site is outside the range of the source-site filter, both
+        bin_edges and diss_matrix are None.
+
+        Note that tectonic region type bins are replaced by source ID bins
+        in this implementation.
+    """
+    tom = PoissonTOM(time_span)
+
+    bins_data = _collect_bins_data_multi(sources, sitecol, site_imtls,
+                                   gsims, tom, truncation_level, n_epsilons,
+                                   source_site_filter, rupture_site_filter)
+
+    for site in sitecol:
+        key = (site.location.longitude, site.location.latitude)
+        if bins_data[key] is None:
+            bin_edges = None
+            full_diss_matrix = None
+        else:
+            imtls = site_imtls[key]
+            imts = imtls.keys()
+            num_imts = len(imts)
+            num_imls = len(imtls[imts[0]])
+            for i, imt in enumerate(imtls.keys()):
+                for l in range(len(imtls[imt])):
+                    iml = imtls[imt][l]
+                    if len(bins_data[key][imt][l][0]) != 0:
+                        if i==0 and l == 0:
+                            # For a given site, magnitudes, distances, lons,
+                            # lats, trts are always the same, (and epsilon bins
+                            # are data-independent), so bin_edges should be
+                            # determined only once
+                            bin_edges = _define_bins(bins_data[key][imt][l], mag_bin_width, dist_bin_width,
+                                                     coord_bin_width, truncation_level, n_epsilons)
+                        diss_matrix = _arrange_data_in_bins(bins_data[key][imt][l], bin_edges)
+                        if i == 0 and l == 0:
+                            shape = (num_imts, num_imls) + diss_matrix.shape
+                            full_diss_matrix = numpy.zeros(shape)
+                        full_diss_matrix[i, l] = diss_matrix
+        del bins_data[key]
+        yield site, bin_edges, full_diss_matrix
+
+
 # DEPRECATED
 def disaggregation(sources, site, imt, iml, gsims, tom,
                    truncation_level, n_epsilons,
@@ -242,6 +310,167 @@ def _collect_bins_data(sources, site, imt, iml, gsims, tom,
 
     return (mags, dists, lons, lats, tect_reg_types, trt_bins,
             probs_one_or_more, probs_exceed_given_rup, src_idxs)
+
+
+def _collect_bins_data_multi(sources, sitecol, site_imtls, gsims,
+                                tom, truncation_level, n_epsilons,
+                                source_site_filter, rupture_site_filter):
+    """
+    Similar to :func:`_collect_bins_data`, but adapted for multiple sites,
+    multiple, imt's per site, and multiple iml's per imt. This function is
+    called by :func:`disaggregation_poissonian_multi`. This should be faster
+    than calling :func:`disaggregation_poissonian` multiple times, as we
+    only iterate once over the ruptures of each source. Memory may become
+    an issue for complex models, though.
+
+    :param sitecol:
+        instance of :class:`SiteCollection`
+    :param site_itmls:
+        dictionary mapping site (lon, lat) tuples to dictionaries
+        in turn mapping instances of :class:`IMT` to 1-D arrays of
+        iml's. Note that number of iml's should be the same for
+        each imt.
+
+    Other parameters are similar to :func:`disaggregation_poissonian`
+
+    :return:
+        bins_data[(site.lon, site.lat)][imt][]
+        dictionary mapping site (lon, lat) tuples to dictionaries
+        in turn mapping instances of :class:`IMT` to lists of bins_data
+        (as returned by :func:`_collect_bins_data`) for each iml.
+
+        Note that tectonic region type bins are replaced by source ID bins
+        in this implementation.
+    """
+
+    mags = []
+    dists = {}
+    lons = {}
+    lats = {}
+    tect_reg_types = []
+    probs_one_or_more = []
+    probs_exceed_given_rup = {}
+    src_idxs = []
+
+    sitemesh = sitecol.mesh
+
+    for site in sitecol:
+        key = (site.location.longitude, site.location.latitude)
+        dists[key] = []
+        lons[key] = []
+        lats[key] = []
+        probs_exceed_given_rup[key] = {}
+        imtls = site_imtls[key]
+        imts = imtls.keys()
+        for imt in imts:
+            probs_exceed_given_rup[key][imt] = []
+            for iml in imtls[imt]:
+                probs_exceed_given_rup[key][imt].append([])
+
+    _next_trt_num = 0
+    trt_nums = {}
+
+    sources_sites = ((source, sitecol) for source in sources)
+    # In contrast to _collect_bins_data, we need to keep track of which sites
+    # are filtered out by the source_site and rupture_site filters
+    for src_idx, (source, s_sites) in \
+            enumerate(source_site_filter(sources_sites)):
+        try:
+            tect_reg = source.tectonic_region_type
+            gsim = gsims[tect_reg]
+
+            # store source ID instead of tectonic region type
+            if not source.source_id in trt_nums:
+                trt_nums[source.source_id] = src_idx
+                #_next_trt_num += 1
+            tect_reg = src_idx
+
+            ruptures_sites = ((rupture, s_sites)
+                              for rupture in source.iter_ruptures(tom))
+            for rupture, r_sites in rupture_site_filter(ruptures_sites):
+                # extract rupture parameters of interest
+                mags.append(rupture.mag)
+                tect_reg_types.append(tect_reg)
+
+                sctx, rctx, dctx = gsim.make_contexts(r_sites, rupture)
+                if hasattr(dctx, "rjb"):
+                    jb_dists = dctx["rjb"]
+                else:
+                    jb_dists = rupture.surface.get_joyner_boore_distance(sitemesh)
+                closest_points = rupture.surface.get_closest_points(sitemesh)
+
+                for site, jb_dist, closest_point in zip(r_sites, jb_dists, closest_points):
+                    key = (site.location.longitude, site.location.latitude)
+                    dists[key].append(jb_dist)
+                    lons[key].append(closest_point.longitude)
+                    lats[key].append(closest_point.latitude)
+
+                # compute probability of one or more rupture occurrences
+                probs_one_or_more.append(
+                    rupture.get_probability_one_or_more_occurrences()
+                )
+
+                # compute conditional probability of exceeding iml given
+                # the current rupture, and different epsilon level, that is
+                # ``P(IMT >= iml | rup, epsilon_bin)`` for each of epsilon bins
+                for site in r_sites:
+                    key = (site.location.longitude, site.location.latitude)
+                    imtls = site_imtls[key]
+                    imts = imtls.keys()
+                    sctx, rctx, dctx = gsim.make_contexts(SiteCollection([site]), rupture)
+                    for imt in imts:
+                        imls = imtls[imt]
+                        # in contrast to what is stated in the documentation,
+                        # disaggregate_poe does handle more than one iml
+                        poes_given_rup_eps = gsim.disaggregate_poe(
+                            sctx, rctx, dctx, imt, imls, truncation_level, n_epsilons
+                        )
+                        # collect probability of exceedance given the rupture
+                        for l in range(len(imls)):
+                            probs_exceed_given_rup[key][imt][l].append(poes_given_rup_eps[l])
+
+                # keep track of the source index, so that the probabilities can
+                # be associated to each source
+                src_idxs.append(src_idx)
+        except Exception, err:
+            msg = 'An error occurred with source id=%s. Error: %s'
+            msg %= (source.source_id, err.message)
+            raise RuntimeError(msg)
+
+    bins_data = {}
+
+    mags = numpy.array(mags, float)
+    tect_reg_types = numpy.array(tect_reg_types, int)
+    probs_one_or_more = numpy.array(probs_one_or_more, float)
+    src_idxs = numpy.array(src_idxs, int)
+
+    trt_bins = [
+        trt for (num, trt) in sorted((num, trt)
+                                     for (trt, num) in trt_nums.items())
+    ]
+
+    for site in sitecol:
+        key = (site.location.longitude, site.location.latitude)
+        if len(dists[key]) == 0:
+            bins_data[key] = None
+        else:
+            bins_data[key] = {}
+            _dists = numpy.array(dists[key], float)
+            _lons = numpy.array(lons[key], float)
+            _lats = numpy.array(lats[key], float)
+            imtls = site_imtls[key]
+            imts = imtls.keys()
+            for imt in imts:
+                bins_data[key][imt] = []
+                for l in range(len(imtls[imt])):
+                    bins_data[key][imt].append((
+                        mags, _dists, _lons, _lats, tect_reg_types,
+                        trt_bins, probs_one_or_more,
+                        numpy.array(probs_exceed_given_rup[key][imt][l], float),
+                        src_idxs))
+            del probs_exceed_given_rup[key]
+
+    return bins_data
 
 
 def _define_bins(bins_data, mag_bin_width, dist_bin_width,
