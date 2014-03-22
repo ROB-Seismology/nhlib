@@ -408,7 +408,7 @@ class GroundShakingIntensityModel(object):
                                 ## Eq. 4-3
                                 eps_sa_dot = (ln_imls - ln_sa_given_pga[d]) / sigma_ln_sa_given_pga[d]
                                 ## Eq. 4-2
-                                prob_sa_given_pga = 1.0 - ndtr(eps_sa_dot)
+                                prob_sa_given_pga = 1.0 - norm.cdf(eps_sa_dot)
 
                                 joint_exceedance_probs[d] += (prob_eps_array[e] * cav_exceedance_prob[e, d] * prob_sa_given_pga)
 
