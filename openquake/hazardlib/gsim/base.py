@@ -334,10 +334,10 @@ class GroundShakingIntensityModel(object):
             ln_imls = self.to_distribution_values(imls)
             ln_sa_med, [sigma_ln_sa] = self.get_mean_and_stddevs(sctx, rctx, dctx, imt,
                                                        [const.StdDev.TOTAL])
-            #ln_sa_med = ln_sa_med.reshape(ln_sa_med.shape + (1, ))
-            #sigma_ln_sa = sigma_ln_sa.reshape(sigma_ln_sa.shape + (1, ))
             nsites = len(ln_sa_med)
-            zvalues = (ln_imls - ln_sa_med.reshape((nsites, 1))) / sigma_ln_sa.reshape((nsites, 1))
+            ln_sa_med = ln_sa_med.reshape((nsites, 1))
+            sigma_ln_sa = sigma_ln_sa.reshape((nsites, 1))
+            zvalues = (ln_imls - ln_sa_med) / sigma_ln_sa
             if truncation_level is None:
                 # CAV filtering not supported
                 return _norm_sf(zvalues)
@@ -348,34 +348,30 @@ class GroundShakingIntensityModel(object):
                 else:
                     from cav import calc_CAV_exceedance_prob
                     ## Normally distributed epsilon values and corresponding probabilities
-                    if imt == imt_module.PGA():
-                        pga_truncation_level = truncation_level
-                    else:
-                        pga_truncation_level = truncation_level + 2
-                    norm = scipy.stats.truncnorm(-pga_truncation_level, pga_truncation_level)
-                    neps = int(pga_truncation_level / depsilon) * 2 + 1
-                    eps_pga_array = numpy.linspace(-pga_truncation_level, pga_truncation_level, neps)
+                    norm = scipy.stats.truncnorm(-truncation_level, truncation_level)
+                    neps = int(truncation_level / depsilon) * 2 + 1
+                    eps_pga_array = numpy.linspace(-truncation_level, truncation_level, neps)
                     prob_eps_array = norm.pdf(eps_pga_array) * depsilon
+                    #prob_eps_array /= numpy.add.reduce(prob_eps_array)
 
                     ## Pre-calculate CAV exceedance probabilities for epsilon PGA
                     ln_pga_eps_pga_array = numpy.zeros((neps, nsites))
                     cav_exceedance_prob = numpy.zeros((neps, nsites))
                     imt_pga = imt_module.PGA()
-                    ln_pga, [sigma_ln_pga] = self.get_mean_and_stddevs(sctx, rctx, dctx,
+                    ln_pga_med, [sigma_ln_pga] = self.get_mean_and_stddevs(sctx, rctx, dctx,
                                                     imt_pga, [const.StdDev.TOTAL])
                     for e, eps_pga in enumerate(eps_pga_array):
                         ## Determine PGA corresponding to eps_pga
-                        _ln_pga = ln_pga + eps_pga * sigma_ln_pga
-                        ln_pga_eps_pga_array[e] = _ln_pga
+                        ln_pga = ln_pga_med + eps_pga * sigma_ln_pga
+                        ln_pga_eps_pga_array[e] = ln_pga
                         ## CAV exceedance probability for PGA
-                        cav_exceedance_prob[e] = calc_CAV_exceedance_prob(_ln_pga, rctx.mag, sctx.vs30, cav_min=cav_min)
+                        cav_exceedance_prob[e] = calc_CAV_exceedance_prob(ln_pga, rctx.mag, sctx.vs30, cav_min=cav_min)
 
                     joint_exceedance_probs = numpy.zeros((nsites, len(imls)))
 
                     if imt == imt_module.PGA():
                         ## Integrate explicitly over epsilon
                         for e in range(neps):
-                            # TODO: check if loop over nsites can be removed
                             for d in range(nsites):
                                 idxs = numpy.where(ln_pga_eps_pga_array[e][d] > ln_imls)
                                 joint_exceedance_probs[d][idxs] += (prob_eps_array[e] * cav_exceedance_prob[e, d])
@@ -399,10 +395,10 @@ class GroundShakingIntensityModel(object):
                             ## Determine epsilon value of SA, and sigma
                             ## Eq. 3-1
                             eps_sa = b1 * eps_pga
+
                             ## Eq. 3-2
                             ln_sa_given_pga = ln_sa_med + eps_sa * sigma_ln_sa
 
-                            # TODO: check if loop over nsites can be removed
                             for d in range(nsites):
                                 ## Determine probability of exceedance of SA given PGA
                                 ## Eq. 4-3
@@ -412,8 +408,7 @@ class GroundShakingIntensityModel(object):
 
                                 joint_exceedance_probs[d] += (prob_eps_array[e] * cav_exceedance_prob[e, d] * prob_sa_given_pga)
 
-                        ## iml values close to truncation boundaries should have lower exceedance rates
-                        ## This also constrains iml between (-truncation_level, truncation_level)
+                        ## Workaround to make sure SA values are properly truncated
                         joint_exceedance_probs = numpy.minimum(joint_exceedance_probs, sa_exceedance_prob)
 
                     return joint_exceedance_probs
