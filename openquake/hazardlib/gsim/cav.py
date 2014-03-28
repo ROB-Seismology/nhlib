@@ -119,19 +119,22 @@ def calc_CAV_exceedance_prob(ln_pga, mag, vs30, cav_min=0.16):
 	:return:
 		1-D array of probability values with same shape as ln_pga and vs30
 	"""
-	ln_pga = np.array(ln_pga)
-	vs30 = np.array(vs30)
-	if len(ln_pga) != len(vs30):
-		raise Exception("Length of ln_pga and vs30 arrays should be the same!")
+	if cav_min > 0:
+		ln_pga = np.array(ln_pga)
+		vs30 = np.array(vs30)
+		if len(ln_pga) != len(vs30):
+			raise Exception("Length of ln_pga and vs30 arrays should be the same!")
 
-	non_zero_indexes = np.where(ln_pga >= ln_0_025)
+		non_zero_indexes = np.where(ln_pga >= ln_0_025)
 
-	prob = np.zeros_like(ln_pga, 'd')
-	ln_vs30 = np.log(vs30)
+		prob = np.zeros_like(ln_pga, 'd')
+		ln_vs30 = np.log(vs30)
 
-	ln_CAV, sigma_ln_CAV = calc_ln_CAV(ln_pga, mag, ln_vs30)
+		ln_CAV, sigma_ln_CAV = calc_ln_CAV(ln_pga, mag, ln_vs30)
 
-	epsilon_CAV = (np.log(cav_min) - ln_CAV[non_zero_indexes]) / sigma_ln_CAV[non_zero_indexes]
-	prob[non_zero_indexes] = 1.0 - scipy.stats.norm.cdf(epsilon_CAV)
+		epsilon_CAV = (np.log(cav_min) - ln_CAV[non_zero_indexes]) / sigma_ln_CAV[non_zero_indexes]
+		prob[non_zero_indexes] = 1.0 - scipy.stats.norm.cdf(epsilon_CAV)
+	else:
+		prob = np.ones_like(ln_pga, 'd')
 
 	return prob
