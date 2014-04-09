@@ -21,6 +21,8 @@ from __future__ import division
 
 import numpy as np
 
+from openquake.hazardlib.gsim.base import IPE
+from openquake.hazardlib import const
 from openquake.hazardlib.imt import MMI
 
 
@@ -37,6 +39,8 @@ class Barrientos2007(IPE):
         MMI
     ])
 
+    DEFINED_FOR_INTENSITY_MEASURE_COMPONENT = const.IMC.AVERAGE_HORIZONTAL
+
     DEFINED_FOR_STANDARD_DEVIATION_TYPES = set([
         const.StdDev.TOTAL
     ])
@@ -44,7 +48,7 @@ class Barrientos2007(IPE):
     # TODO !
     REQUIRES_SITES_PARAMETERS = set(('vs30', ))
 
-    REQUIRES_RUPTURE_PARAMETERS = set(('mag'))
+    REQUIRES_RUPTURE_PARAMETERS = set(('mag',))
 
     REQUIRES_DISTANCES = set(('rrup', ))
 
