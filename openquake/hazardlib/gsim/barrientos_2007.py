@@ -63,6 +63,7 @@ class Barrientos2007(IPE):
         mean_mmi = (1.3844 * rup.mag - 3.755 * np.log10(dists.rrup)
                     - 0.0006 * dists.rrup + 3.91)
         mean_mmi += self.compute_site_term(sites)
+        mean_mmi = mean_mmi.clip(min=1, max=12)
 
         stddevs = np.zeros_like(dists.rrup)
 

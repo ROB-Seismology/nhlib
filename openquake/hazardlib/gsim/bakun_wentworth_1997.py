@@ -62,6 +62,7 @@ class BakunWentworth1997(IPE):
 
         # Eq. 4, page 1508
         mean_mmi = 3.67 + 1.17 * rup.mag - 3.19 * np.log10(dists.repi)
+        mean_mmi = mean_mmi.clip(min=1, max=12)
 
         stddevs = np.zeros_like(dists.repi)
 
