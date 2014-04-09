@@ -60,9 +60,8 @@ class BakunWentworth1997(IPE):
         for spec of input and result values.
         """
 
-        # Eq. 6, page 1508
-        mean_mmi = 5.07 + 10.9 * rup.mag - 3.69 * np.log10(dists.repi)
-        print mean_mmi
+        # Eq. 4, page 1508
+        mean_mmi = 3.67 + 1.17 * rup.mag - 3.19 * np.log10(dists.repi)
 
         stddevs = np.zeros_like(dists.repi)
 
