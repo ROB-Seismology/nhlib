@@ -4,7 +4,6 @@ as outlined in Abrahamson et al. (2006) (EPRI technical paper 1014099)
 """
 
 import numpy as np
-import scipy.stats
 
 
 
@@ -120,6 +119,11 @@ def calc_CAV_exceedance_prob(ln_pga, mag, vs30, cav_min=0.16):
 		1-D array of probability values with same shape as ln_pga and vs30
 	"""
 	if cav_min > 0:
+		try:
+			from ..c_speedups import norm
+		except:
+			print("Failed importing norm speedup!")
+			from scipy.stats import norm
 		ln_pga = np.array(ln_pga)
 		vs30 = np.array(vs30)
 		if len(ln_pga) != len(vs30):
@@ -133,7 +137,7 @@ def calc_CAV_exceedance_prob(ln_pga, mag, vs30, cav_min=0.16):
 		ln_CAV, sigma_ln_CAV = calc_ln_CAV(ln_pga, mag, ln_vs30)
 
 		epsilon_CAV = (np.log(cav_min) - ln_CAV[non_zero_indexes]) / sigma_ln_CAV[non_zero_indexes]
-		prob[non_zero_indexes] = 1.0 - scipy.stats.norm.cdf(epsilon_CAV)
+		prob[non_zero_indexes] = 1.0 - norm.cdf(epsilon_CAV)
 	else:
 		prob = np.ones_like(ln_pga, 'd')
 
