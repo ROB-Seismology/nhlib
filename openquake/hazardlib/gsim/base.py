@@ -340,26 +340,41 @@ class GroundShakingIntensityModel(object):
             zvalues = (ln_imls - ln_sa_med) / sigma_ln_sa
             if truncation_level is None:
                 # CAV filtering not supported
-                return _norm_sf(zvalues)
+                try:
+                    from ..c_speedups import norm
+                except:
+                    #print("Failed importing truncnorm speedup!")
+                    return _norm_sf(zvalues)
+                else:
+                    return 1 - norm.cdf(zvalues)
             else:
-                sa_exceedance_prob = _truncnorm_sf(truncation_level, zvalues)
+                try:
+                    from ..c_speedups import truncnorm
+                except:
+                    #print("Failed importing truncnorm speedup!")
+                    from scipy.stats import truncnorm
+                #sa_exceedance_prob = _truncnorm_sf(truncation_level, zvalues)
+                sa_exceedance_prob = 1 - truncnorm.cdf(zvalues, -truncation_level, truncation_level)
                 if cav_min == 0 or rctx.mag > cav_max_mag:
                     return sa_exceedance_prob
                 else:
                     from cav import calc_CAV_exceedance_prob
+
+                    imt_pga = imt_module.PGA()
+                    #if imt != imt_pga:
+                    #    depsilon = 0.5
                     ## Normally distributed epsilon values and corresponding probabilities
-                    norm = scipy.stats.truncnorm(-truncation_level, truncation_level)
                     neps = int(truncation_level / depsilon) * 2 + 1
                     eps_pga_array = numpy.linspace(-truncation_level, truncation_level, neps)
-                    prob_eps_array = norm.pdf(eps_pga_array) * depsilon
+                    prob_eps_array = truncnorm.pdf(eps_pga_array, -truncation_level, truncation_level) * depsilon
                     #prob_eps_array /= numpy.add.reduce(prob_eps_array)
 
                     ## Pre-calculate CAV exceedance probabilities for epsilon PGA
                     ln_pga_eps_pga_array = numpy.zeros((neps, nsites))
                     cav_exceedance_prob = numpy.zeros((neps, nsites))
-                    imt_pga = imt_module.PGA()
                     ln_pga_med, [sigma_ln_pga] = self.get_mean_and_stddevs(sctx, rctx, dctx,
                                                     imt_pga, [const.StdDev.TOTAL])
+
                     for e, eps_pga in enumerate(eps_pga_array):
                         ## Determine PGA corresponding to eps_pga
                         ln_pga = ln_pga_med + eps_pga * sigma_ln_pga
@@ -369,7 +384,7 @@ class GroundShakingIntensityModel(object):
 
                     joint_exceedance_probs = numpy.zeros((nsites, len(imls)))
 
-                    if imt == imt_module.PGA():
+                    if imt == imt_pga:
                         ## Integrate explicitly over epsilon
                         for e in range(neps):
                             for d in range(nsites):
@@ -404,7 +419,7 @@ class GroundShakingIntensityModel(object):
                                 ## Eq. 4-3
                                 eps_sa_dot = (ln_imls - ln_sa_given_pga[d]) / sigma_ln_sa_given_pga[d]
                                 ## Eq. 4-2
-                                prob_sa_given_pga = 1.0 - norm.cdf(eps_sa_dot)
+                                prob_sa_given_pga = 1 - truncnorm.cdf(eps_sa_dot, -truncation_level, truncation_level)
 
                                 joint_exceedance_probs[d] += (prob_eps_array[e] * cav_exceedance_prob[e, d] * prob_sa_given_pga)
 
@@ -439,6 +454,12 @@ class GroundShakingIntensityModel(object):
             raise ValueError('truncation level must be positive')
         self._check_imt(imt)
 
+        try:
+            from ..c_speedups import truncnorm
+        except:
+            #print("Failed importing truncnorm speedup!")
+            from scipy.stats import truncnorm
+
         # compute mean and standard deviations
         mean, [stddev] = self.get_mean_and_stddevs(sctx, rctx, dctx, imt,
                                                    [const.StdDev.TOTAL])
@@ -448,13 +469,17 @@ class GroundShakingIntensityModel(object):
         iml = self.to_distribution_values(iml)
         standard_imls = (iml - mean) / stddev
 
-        distribution = scipy.stats.truncnorm(- truncation_level,
-                                             truncation_level)
+        #distribution = scipy.stats.truncnorm(- truncation_level,
+        #                                     truncation_level)
+        truncation_level = float(truncation_level)
         epsilons = numpy.linspace(- truncation_level, truncation_level,
                                   n_epsilons + 1)
         # compute epsilon bins contributions
-        contribution_by_bands = (distribution.cdf(epsilons[1:]) -
-                                 distribution.cdf(epsilons[:-1]))
+        #contribution_by_bands = (distribution.cdf(epsilons[1:]) -
+        #                         distribution.cdf(epsilons[:-1]))
+        contribution_by_bands = (truncnorm.cdf(epsilons[1:], -truncation_level,
+                                truncation_level) - truncnorm.cdf(epsilons[:-1],
+                                 -truncation_level, truncation_level))
 
         # take the minimum epsilon larger than standard_iml
         iml_bin_indices = numpy.searchsorted(epsilons, standard_imls)
@@ -478,7 +503,8 @@ class GroundShakingIntensityModel(object):
                 # ... area of the portion of the bin containing ``iml``
                 # (the portion is limited on the left hand side by
                 # ``iml`` and on the right hand side by the bin edge),
-                [distribution.sf(standard_imls[i])
+                #[distribution.sf(standard_imls[i])
+                [truncnorm.sf(standard_imls[i], -truncation_level, truncation_level)
                  - contribution_by_bands[idx:].sum()],
                 # ... and all bins on the right go unchanged.
                 contribution_by_bands[idx:]

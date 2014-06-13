@@ -50,7 +50,7 @@ class Barrientos2007(IPE):
 
     REQUIRES_RUPTURE_PARAMETERS = set(('mag',))
 
-    REQUIRES_DISTANCES = set(('rrup', ))
+    REQUIRES_DISTANCES = set(('rhypo', ))
 
 
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
@@ -60,12 +60,12 @@ class Barrientos2007(IPE):
         for spec of input and result values.
         """
 
-        mean_mmi = (1.3844 * rup.mag - 3.755 * np.log10(dists.rrup)
-                    - 0.0006 * dists.rrup + 3.91)
+        mean_mmi = (1.3844 * rup.mag - 3.7355 * np.log10(dists.rhypo)
+                    - 0.0006 * dists.rhypo + 3.8461)
         mean_mmi += self.compute_site_term(sites)
         mean_mmi = mean_mmi.clip(min=1, max=12)
 
-        stddevs = np.zeros_like(dists.rrup)
+        stddevs = np.zeros_like(dists.rhypo)
 
         return mean_mmi, stddevs
 
