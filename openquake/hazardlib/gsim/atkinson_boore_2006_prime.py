@@ -23,7 +23,7 @@ import numpy as np
 from scipy.constants import g
 
 from openquake.hazardlib.gsim.boore_atkinson_2008 import BooreAtkinson2008
-from openquake.hazardlib.gsim.base import CoeffsTable
+from openquake.hazardlib.gsim.base import CoeffsTable, SitesContext
 from openquake.hazardlib import const
 from openquake.hazardlib.imt import PGA, PGV, SA
 
@@ -112,7 +112,7 @@ class AtkinsonBoore2006Prime(BooreAtkinson2008):
         # calculation on non-hard-rock sites)
         pga_bc = np.zeros_like(sites.vs30)
         self._compute_mean(self.COEFFS_BC[PGA()], f0, f1, f2, rup.mag,
-                           rrup, sites, sites.vs30 < 2000.0, pga_bc)
+                           rrup, sites, sites.vs30 < 760.0, pga_bc)
         pga_bc = (10 ** pga_bc) * 1e-2 / g
 
         # compute mean values for hard-rock sites (vs30 >= 2000),
@@ -135,12 +135,14 @@ class AtkinsonBoore2006Prime(BooreAtkinson2008):
 
         # convert from base 10 to base e
         if imt == PGV():
-            mean *= ln10
+            # convert from cm/s to m/s
+            mean = mean * ln10 - ln100
         else:
             # convert from cm/s**2 to g
             #mean = np.log((10 ** mean) * 1e-2 / g)
             mean = mean * ln10 - ln_g - ln100
 
+        # stddevs are already in base e
         stddevs = self._get_stddevs(stddev_types, num_sites=len(sites.vs30))
 
         return mean, stddevs
@@ -215,11 +217,13 @@ class AtkinsonBoore2006Prime(BooreAtkinson2008):
         """
         # convert from base e (as defined in BA2008) to base 10 (as used in
         # AB2006)
-        sal = self._get_site_amplification_linear(sites, C) * log_e
-        sanl = self._get_site_amplification_non_linear(sites, pga_bc, C) * log_e
-
         soft_soil_idxs = sites.vs30 <= 760.0
-        mean_bc[soft_soil_idxs] += (sal[soft_soil_idxs] + sanl[soft_soil_idxs])
+        soft_soil_sites = SitesContext()
+        setattr(soft_soil_sites, 'vs30', sites.vs30[soft_soil_idxs])
+        sal = self._get_site_amplification_linear(soft_soil_sites, C) * log_e
+        sanl = self._get_site_amplification_non_linear(soft_soil_sites, pga_bc[soft_soil_idxs], C) * log_e
+
+        mean_bc[soft_soil_idxs] += (sal + sanl)
 
         ## According to the notes accompanying the program by David Boore,
         ## values of ground motion for VS30 between 800 m/s and 2000 m/s

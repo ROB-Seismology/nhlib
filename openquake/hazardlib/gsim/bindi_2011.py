@@ -25,6 +25,14 @@ from openquake.hazardlib import const
 from openquake.hazardlib.imt import PGA, PGV, SA
 
 
+# standard acceleration of gravity in m/s**2
+from scipy.constants import g
+
+## Compute these logs only once
+ln10, ln100 = np.log(10), np.log(100)
+ln_g = np.log(g)
+
+
 class BindiEtAl2011(GMPE):
 	"""
 	Implements GMPE developed by Bindi, D., Pacor, F., Luzi, L., Puglia, R.,
@@ -85,17 +93,18 @@ class BindiEtAl2011(GMPE):
 
 		# mean value as given by equation (1), p. 5.
 		mean = C['e1'] + self._get_distance_scaling_term(C, rup, dists) + self._get_magnitude_scaling_term(C, rup) + self._get_site_term(C, sites) + self._get_fault_term(C, rup)
-		if isinstance(imt, PGA) or isinstance(imt, SA):
-			# from log10(cm/s**2) to g
-				mean = (10 ** mean) / 981
-		if isinstance(imt, PGV):
+		if isinstance(imt, SA) or isinstance(imt, PGA):
+			# convert from cm/s**2 to g
+			#mean = np.log((10 ** mean) / 981)
+			mean = mean * ln10 - ln_g - ln100
+		elif isinstance(imt, PGV):
 			# from log10(cm/s) to m/s
-			mean = (10 ** mean) / 100.
+			#mean = np.log((10 ** mean) / 100.)
+			mean = mean * ln10 - ln100
 
-		# natural logarithm
-		mean = np.log(mean)
-
+		# convert stddevs from base 10 to base e
 		stddevs = self._get_stddevs(C, stddev_types, len(sites.vs30))
+		stddevs *= ln10
 
 		return mean, stddevs
 
@@ -160,7 +169,7 @@ class BindiEtAl2011(GMPE):
 			elif stddev_type == const.StdDev.INTER_EVENT:
 				stddevs.append(C['s_inter'] + np.zeros(num_sites))
 
-		return stddevs
+		return np.array(stddevs)
 
 	#: Coefficient table obtained by joining tables 1, p. 19 and 5, p. 22.
 	COEFFS = CoeffsTable(sa_damping=5, table="""\
