@@ -1,0 +1,2 @@
+"C:\Anaconda\Scripts\gcc.bat" -DMS_WIN64 -mdll -O -Wall -IC:\Anaconda\include -IC:\Anaconda\Lib\site-packages\numpy\core\include -LC:\Anaconda\libs geoutilsmodule.c -lpython27 -o ../openquake/hazardlib/geo/_utils_speedups.pyd
+"C:\Anaconda\Scripts\gcc.bat" -DMS_WIN64 -mdll -O -Wall -IC:\Anaconda\include -IC:\Anaconda\Lib\site-packages\numpy\core\include -LC:\Anaconda\libs geodeticmodule.c -lpython27 -o ../openquake/hazardlib/geo/_geodetic_speedups.pyd
