@@ -39,12 +39,14 @@ class ToroEtAl2002HTT(ToroEtAl2002):
         """
         mean, stddevs = super(ToroEtAl2002HTT, self).get_mean_and_stddevs(sites, rup, dists, imt, stddev_types)
 
+        htt_coeffs = self.HTT_COEFFS[imt]
+
         if isinstance(imt, SA):
             freq = 1. / imt.period
         else:
-            freq = 100.
+            freq = 100. ## freq of PGA
         mean += np.log(self.get_kappa_cf(sites.kappa, freq))
-        mean += np.log(self.get_vs30_cf(sites.vs30, imt))
+        mean += np.log(self.get_vs30_cf(sites.vs30, htt_coeffs))
         
         return mean, stddevs
 
@@ -57,13 +59,17 @@ class ToroEtAl2002HTT(ToroEtAl2002):
         amps = target_amps / host_amps
         return amps
 
-    def get_vs30_cf(self, target_vs30s, imt):
+    def get_vs30_cf(self, target_vs30s, htt_coeffs):
         """
         """
-        cfs = []
-        for target_vs30 in target_vs30s:
-           cfs.append(self.HTT_COEFFS[imt]['%.f' % target_vs30])
-        return np.array(cfs)
+        if (target_vs30s == target_vs30s[0]).all():
+            return htt_coeffs['%.f' % target_vs30s[0]]
+        else:
+            cfs = []
+            for target_vs30 in target_vs30s:
+               cfs.append(htt_coeffs['%.f' % target_vs30])
+            return np.array(cfs)
+        
 
     HTT_COEFFS = CoeffsTable(sa_damping=5, table="""\
 imt 600 700 800 900 1000 1100 1200 1300 1400 1500 1600 1700 1800 1900 2000 2100 2200 2300 2400 2500 2600 2700
