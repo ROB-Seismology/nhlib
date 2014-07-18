@@ -373,9 +373,13 @@ def point_to_polygon_distance(polygon, pxx, pyy):
     ])
     return result.reshape(pxx.shape)
 
+import platform
 
 try:
-    from openquake.hazardlib.geo import _utils_speedups
+    if platform.architecture()[0] == "32bit":
+        from openquake.hazardlib.geo.x86 import _utils_speedups
+    else:
+        from openquake.hazardlib.geo import _utils_speedups
 except ImportError:
     # speedups extension is not available
     import warnings

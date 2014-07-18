@@ -438,9 +438,13 @@ def _prepare_coords(lons1, lats1, lons2, lats2):
     assert lons2.shape == lats2.shape
     return lons1, lats1, lons2, lats2
 
+import platform
 
 try:
-    from openquake.hazardlib.geo import _geodetic_speedups
+    if platform.architecture()[0] == "32bit":
+        from openquake.hazardlib.geo.x86 import _geodetic_speedups
+    else:
+        from openquake.hazardlib.geo import _geodetic_speedups
 except ImportError:
     # speedups extension is not available
     import warnings
