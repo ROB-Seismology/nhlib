@@ -53,7 +53,7 @@ class ToroEtAl2002HTT(ToroEtAl2002):
     def get_kappa_cf(self, target_kappas, freq):
         """
         """
-        host_kappa = 0.006
+        host_kappa = 0.007
         host_amps = np.exp(-np.pi * host_kappa * freq)
         target_amps = np.exp(-np.pi * target_kappas * freq)
         amps = target_amps / host_amps
