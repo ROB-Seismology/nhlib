@@ -32,6 +32,11 @@ class ToroEtAl2002HTT(ToroEtAl2002):
 
     #: HTT requires vs30 and kappa
     REQUIRES_SITES_PARAMETERS = set(('vs30', 'kappa'))
+    DEFINED_FOR_VS30 = np.arange(600, 2700, 100)
+    DEFINED_FOR_KAPPA = np.array([0.008, 0.009, 0.01, 0.015, 0.02, 0.025, 0.03, 0.04, 0.05])
+
+    host_vs30 = 2800
+    host_kappa = 0.007
 
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
         """
@@ -39,47 +44,76 @@ class ToroEtAl2002HTT(ToroEtAl2002):
         """
         mean, stddevs = super(ToroEtAl2002HTT, self).get_mean_and_stddevs(sites, rup, dists, imt, stddev_types)
 
-        htt_coeffs = self.HTT_COEFFS[imt]
+        mean += np.log(self.get_kappa_cf(sites.kappa, imt))
+        mean += np.log(self.get_vs30_cf(sites.vs30, imt))
 
-        if isinstance(imt, SA):
-            freq = 1. / imt.period
-        else:
-            freq = 100. ## freq of PGA
-        mean += np.log(self.get_kappa_cf(sites.kappa, freq))
-        mean += np.log(self.get_vs30_cf(sites.vs30, htt_coeffs))
-        
         return mean, stddevs
 
-    def get_kappa_cf(self, target_kappas, freq):
+    def get_kappa_cf(self, target_kappas, imt):
         """
         """
-        host_kappa = 0.007
-        host_amps = np.exp(-np.pi * host_kappa * freq)
-        target_amps = np.exp(-np.pi * target_kappas * freq)
-        amps = target_amps / host_amps
-        return amps
-
-    def get_vs30_cf(self, target_vs30s, htt_coeffs):
-        """
-        """
-        if (target_vs30s == target_vs30s[0]).all():
-            return htt_coeffs['%.f' % target_vs30s[0]]
+        kappa_coeffs = self.KAPPA_COEFFS[imt]
+        if (target_kappas == target_kappas[0]).all():
+            nearest_kappa = self.find_nearest(self.DEFINED_FOR_KAPPA, target_kappas[0])
+            return kappa_coeffs['%s' % nearest_kappa]
         else:
             cfs = []
-            for target_vs30 in target_vs30s:
-               cfs.append(htt_coeffs['%.f' % target_vs30])
+            nearest_kappas = self.find_nearest(self.DEFINED_FOR_KAPPA, target_kappas)
+            for nearest_kappa in nearest_kappas:
+               cfs.append(kappa_coeffs['%s' % nearest_kappa])
             return np.array(cfs)
-        
 
-    HTT_COEFFS = CoeffsTable(sa_damping=5, table="""\
+    def get_vs30_cf(self, target_vs30s, imt):
+        """
+        """
+        vs30_coeffs = self.VS30_COEFFS[imt]
+        if (target_vs30s == target_vs30s[0]).all():
+            nearest_vs30 = self.find_nearest(self.DEFINED_FOR_VS30, target_vs30s[0])
+            return vs30_coeffs['%.f' % nearest_vs30]
+        else:
+            cfs = []
+            nearest_vs30s = self.find_nearest(self.DEFINED_FOR_VS30, target_vs30s)
+            for nearest_vs30 in nearest_vs30s:
+               cfs.append(vs30_coeffs['%.f' % nearest_vs30])
+            return np.array(cfs)
+
+    @staticmethod
+    def find_nearest(array, values):
+        """
+        Find nearest values in a particular array
+
+        :param array:
+            float array, array containing predefined values
+        :param values:
+            float or float array, value(s) to be looked up in :param:`array`
+
+        :return:
+            float or float array selected from :param:`array`
+        """
+        indices = np.abs(np.subtract.outer(array, values)).argmin(0)
+        return array[indices]
+
+
+    VS30_COEFFS = CoeffsTable(sa_damping=5, table="""\
 imt 600 700 800 900 1000 1100 1200 1300 1400 1500 1600 1700 1800 1900 2000 2100 2200 2300 2400 2500 2600 2700
-pga  3.8714 3.3918 3.0264 2.7255 2.4149 2.1876 2.0106 1.8555 1.7305 1.6265 1.5337 1.4547 1.3862 1.3238 1.2688 1.2197 1.1739 1.1327 1.0952 1.0608 1.0292 1.0000
-0.03 3.5041 2.9610 2.5895 2.3198 2.1015 1.9330 1.7977 1.6826 1.5867 1.5052 1.4335 1.3710 1.3160 1.2663 1.2218 1.1817 1.1446 1.1108 1.0798 1.0512 1.0247 1.0000
-0.04 3.3059 2.8137 2.4747 2.2268 2.0276 1.8724 1.7471 1.6407 1.5517 1.4756 1.4087 1.3502 1.2985 1.2518 1.2099 1.1720 1.1371 1.1051 1.0758 1.0486 1.0234 1.0000
-0.10 2.7496 2.3979 2.1499 1.9645 1.8168 1.6991 1.6025 1.5202 1.4499 1.3890 1.3353 1.2878 1.2456 1.2075 1.1731 1.1418 1.1131 1.0868 1.0626 1.0402 1.0194 1.0000
-0.20 2.3981 2.1286 1.9319 1.7820 1.6624 1.5661 1.4868 1.4196 1.3625 1.3131 1.2697 1.2314 1.1974 1.1667 1.1391 1.1139 1.0909 1.0698 1.0503 1.0323 1.0156 1.0000
-0.40 2.0334 1.8296 1.6832 1.5727 1.4854 1.4152 1.3574 1.3085 1.2669 1.2309 1.1994 1.1716 1.1467 1.1243 1.1040 1.0855 1.0684 1.0527 1.0381 1.0245 1.0119 1.0000
-1.00 1.5760 1.4759 1.4022 1.3449 1.2985 1.2600 1.2274 1.1993 1.1746 1.1528 1.1333 1.1157 1.0997 1.0850 1.0716 1.0591 1.0476 1.0368 1.0267 1.0173 1.0084 1.0000
-2.00 1.3826 1.3237 1.2783 1.2418 1.2114 1.1857 1.1636 1.1442 1.1270 1.1117 1.0978 1.0852 1.0736 1.0630 1.0531 1.0440 1.0355 1.0275 1.0200 1.0130 1.0063 1.0000
+pga  2.9680 2.5647 2.2814 2.0708 1.8993 1.7656 1.6574 1.5654 1.4884 1.4225 1.3645 1.3138 1.2690 1.2286 1.1923 1.1594 1.1292 1.1016 1.0762 1.0528 1.0311 1.0108
+0.03 3.3039 2.8093 2.4693 2.2215 2.0215 1.8663 1.7413 1.6350 1.5462 1.4706 1.4040 1.3460 1.2947 1.2484 1.2070 1.1695 1.1349 1.1034 1.0744 1.0476 1.0228 0.9998
+0.04 3.1602 2.7026 2.3865 2.1545 1.9683 1.8228 1.7050 1.6051 1.5213 1.4496 1.3865 1.3313 1.2824 1.2383 1.1987 1.1628 1.1298 1.0996 1.0718 1.0461 1.0222 1.0000
+0.10 2.6809 2.3432 2.1048 1.9264 1.7843 1.6710 1.5779 1.4986 1.4311 1.3727 1.3212 1.2757 1.2353 1.1988 1.1658 1.1359 1.1084 1.0832 1.0600 1.0385 1.0186 1.0000
+0.20 2.3705 2.1037 1.9105 1.7638 1.6468 1.5528 1.4753 1.4097 1.3539 1.3057 1.2634 1.2261 1.1928 1.1629 1.1359 1.1114 1.0889 1.0682 1.0492 1.0316 1.0152 1.0000
+0.40 2.0531 1.8453 1.6963 1.5839 1.4949 1.4235 1.3646 1.3149 1.2725 1.2359 1.2037 1.1752 1.1498 1.1269 1.1061 1.0872 1.0698 1.0537 1.0388 1.0250 1.0121 1.0000
+1.00 1.6630 1.5441 1.4571 1.3900 1.3358 1.2912 1.2537 1.2215 1.1935 1.1688 1.1469 1.1272 1.1093 1.0931 1.0782 1.0645 1.0518 1.0400 1.0290 1.0187 1.0091 1.0000
+2.00 1.4711 1.3908 1.3304 1.2830 1.2443 1.2122 1.1851 1.1616 1.1412 1.1231 1.1071 1.0926 1.0796 1.0677 1.0568 1.0468 1.0375 1.0289 1.0210 1.0135 1.0065 1.0000
     """)
 
+    KAPPA_COEFFS = CoeffsTable(sa_damping=5, table="""\
+imt 0.008 0.009 0.01 0.015 0.02 0.025 0.03 0.04 0.05
+pga  0.9520 0.9012 0.8567 0.6953 0.5906 0.5158 0.4593 0.3786 0.3234
+0.03 0.9176 0.8435 0.7766 0.5291 0.3827 0.2956 0.2418 0.1819 0.1492
+0.04 0.9345 0.8738 0.8178 0.5947 0.4441 0.3429 0.2748 0.1957 0.1541
+0.10 0.9712 0.9434 0.9165 0.7949 0.6917 0.6036 0.5284 0.4086 0.3205
+0.20 0.9842 0.9688 0.9538 0.8830 0.8189 0.7605 0.7071 0.6128 0.5327
+0.40 0.9909 0.9821 0.9733 0.9317 0.8930 0.8567 0.8226 0.7597 0.7031
+1.00 0.9953 0.9907 0.9862 0.9647 0.9450 0.9268 0.9099 0.8803 0.8577
+2.00 0.9983 0.9967 0.9953 0.9916 0.9956 1.0187 1.1676 0.9355 0.9277
+    """)
