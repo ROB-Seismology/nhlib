@@ -60,6 +60,9 @@ geoutils_speedups = Extension('openquake.hazardlib.geo._utils_speedups',
 geodetic_speedups = Extension('openquake.hazardlib.geo._geodetic_speedups',
                               sources=['speedups/geodeticmodule.c'],
                               extra_compile_args=['-Wall', '-O2'])
+truncnorm_speedups = Extension('openquake.hazardlib.c_speedups.truncated_normal._truncated_normal',
+                              sources=['openquake/hazardlib/c_speedups/truncated_normal/truncated_normal.c', 'openquake/hazardlib/c_speedups/truncated_normal/truncated_normal_wrap.c'],
+                              extra_compile_args=['-Wall', '-O2'])
 
 include_dirs = [numpy.get_include()]
 
@@ -76,7 +79,7 @@ setup(
         'scipy',
         'shapely'
     ],
-    ext_modules=[geodetic_speedups, geoutils_speedups],
+    ext_modules=[geodetic_speedups, geoutils_speedups, truncnorm_speedups],
     include_dirs=include_dirs,
     scripts=['openquake/hazardlib/tests/gsim/check_gsim.py'],
     maintainer='GEM',
