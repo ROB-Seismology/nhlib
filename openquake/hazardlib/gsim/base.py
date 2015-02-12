@@ -361,8 +361,8 @@ class GroundShakingIntensityModel(object):
                     from cav import calc_CAV_exceedance_prob
 
                     imt_pga = imt_module.PGA()
-                    #if imt != imt_pga:
-                    #    depsilon = 0.5
+                    if imt != imt_pga:
+                        depsilon = 0.5
                     ## Normally distributed epsilon values and corresponding probabilities
                     neps = int(truncation_level / depsilon) * 2 + 1
                     eps_pga_array = numpy.linspace(-truncation_level, truncation_level, neps)
