@@ -149,7 +149,8 @@ def ground_motion_field_with_residuals(
         rupture, sites, imt, gsim, truncation_level,
         total_residual_epsilons=None,
         intra_residual_epsilons=None,
-        inter_residual_epsilons=None):
+        inter_residual_epsilons=None,
+        rupture_site_filter=filters.rupture_site_noop_filter):
     """
     A simplified version of ``ground_motion_fields`` where: the values
     due to uncertainty (total, intra-event or inter-event residual
@@ -175,20 +176,27 @@ def ground_motion_field_with_residuals(
         for all sites in the collection.
     """
 
+    ruptures_sites = list(rupture_site_filter([(rupture, sites)]))
+    if not ruptures_sites:
+        return numpy.zeros(len(sites))
+
+    total_sites = len(sites)
+    [(rupture, sites)] = ruptures_sites
+
     sctx, rctx, dctx = gsim.make_contexts(sites, rupture)
 
     if truncation_level == 0:
         mean, _stddevs = gsim.get_mean_and_stddevs(sctx, rctx, dctx, imt,
                                                    stddev_types=[])
-        return gsim.to_imt_unit_values(mean)
+        gmf = gsim.to_imt_unit_values(mean)
 
-    if gsim.DEFINED_FOR_STANDARD_DEVIATION_TYPES == set([StdDev.TOTAL]):
+    elif gsim.DEFINED_FOR_STANDARD_DEVIATION_TYPES == set([StdDev.TOTAL]):
         assert total_residual_epsilons is not None
 
         mean, [stddev_total] = gsim.get_mean_and_stddevs(
             sctx, rctx, dctx, imt, [StdDev.TOTAL]
         )
-        stddev_total = stddev_total.reshape(stddev_total.shape + (1, ))
+        #stddev_total = stddev_total.reshape(stddev_total.shape + (1, ))
         total_residual = stddev_total * total_residual_epsilons
         gmf = gsim.to_imt_unit_values(mean + total_residual)
     else:
@@ -204,4 +212,5 @@ def ground_motion_field_with_residuals(
         gmf = gsim.to_imt_unit_values(
             mean + intra_residual + inter_residual)
 
+    gmf = sites.expand(gmf, total_sites, placeholder=0)
     return gmf
