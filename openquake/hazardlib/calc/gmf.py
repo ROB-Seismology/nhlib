@@ -138,7 +138,7 @@ def ground_motion_fields(rupture, sites, imts, gsim, truncation_level,
             inter_residual = stddev_inter * distribution.rvs(size=realizations)
 
             gmf = gsim.to_imt_unit_values(
-                mean + numpy.sqrt(intra_residual**2 + inter_residual)**2)
+                mean + intra_residual + inter_residual)
 
         result[imt] = sites.expand(gmf, total_sites, placeholder=0)
 
@@ -170,6 +170,8 @@ def ground_motion_field_with_residuals(
     :param inter_residual_epsilons:
         a 2d numpy array of floats with the epsilons needed to compute the
         intra event residuals
+        Note that intra- and inter-event residuals should not be opposite
+        in sign.
 
     :returns:
         a 1d numpy array of floats, representing ground shaking intensity
@@ -209,8 +211,17 @@ def ground_motion_field_with_residuals(
         intra_residual = stddev_intra * intra_residual_epsilons
         inter_residual = stddev_inter * inter_residual_epsilons
 
+        ## We have to take into account the sign of epsilon,
+        ## otherwise, residuals will always be positive!
+        ## Assume sign of intra_residual_epsilons and inter_residual_epsilons
+        ## cannot be opposite
+        intra_sign = numpy.sign(intra_residual_epsilons)
+        inter_sign = numpy.sign(inter_residual_epsilons)
+        assert (intra_sign != -inter_sign).any()
+        sign = numpy.sign(intra_sign + inter_sign)
+
         gmf = gsim.to_imt_unit_values(
-            mean + numpy.sqrt(intra_residual**2 + inter_residual)**2)
+            mean + sign * numpy.sqrt(intra_residual**2 + inter_residual)**2)
 
     gmf = sites.expand(gmf, total_sites, placeholder=0)
     return gmf
