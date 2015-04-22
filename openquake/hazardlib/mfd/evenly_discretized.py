@@ -36,7 +36,7 @@ class EvenlyDiscretizedMFD(BaseMFD):
         annual occurrence rates. The resulting histogram has as many bins
         as this list length.
     """
-    MODIFICATIONS = set(('set_occurrence_rates',))
+    MODIFICATIONS = set(('set_occurrence_rates', 'set_max_mag'))
     __slots__ = 'min_mag bin_width occurrence_rates'.split()
 
     def __init__(self, min_mag, bin_width, occurrence_rates):
@@ -94,4 +94,21 @@ class EvenlyDiscretizedMFD(BaseMFD):
             different from the current length.
         """
         self.occurrence_rates = map(float, occurrence_rates)
+        self.check_constraints()
+
+    def modify_set_max_mag(self, value):
+        """
+        Apply absolute maximum magnitude modification.
+        The specified value needs to be larger than ``min_mag``.
+        ``occurrence_rates`` are truncated to the index corresponding
+        to the specified magnitude. If specified value is larger
+        than ``max_mag``, ``occurrence_rates`` is not modified and
+        no error is raised.
+
+        :param value:
+            A float value to assign to ``max_mag``.
+        """
+        assert value > self.min_mag
+        idx = int(round((value - self.min_mag) / self.bin_width))
+        self.occurrence_rates = self.occurrence_rates[:idx]
         self.check_constraints()
