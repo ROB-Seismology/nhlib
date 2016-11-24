@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-Module exports :class:`AtkinsonWald2007`.
+Module exports :class:`AllenEtAl2012Rrup`.
 """
 from __future__ import division
 
@@ -26,11 +26,11 @@ from openquake.hazardlib import const
 from openquake.hazardlib.imt import MMI
 
 
-class AtkinsonWald2007(IPE):
+class AllenEtAl2012Rrup(IPE):
     """
-    Implements IPE developed by Atkinson and Wald (2007)
-    California, USA
-    MS!
+    Implements IPE developed by Allen et al. (2012)
+    for active regions
+    Rupture distance
     """
 
     DEFINED_FOR_TECTONIC_REGION_TYPE = const.TRT.ACTIVE_SHALLOW_CRUST
@@ -45,12 +45,12 @@ class AtkinsonWald2007(IPE):
         const.StdDev.TOTAL
     ])
 
-    # TODO !
-    REQUIRES_SITES_PARAMETERS = set(('vs30', ))
+    # TODO
+    REQUIRES_SITES_PARAMETERS = set(('vs30',))
 
     REQUIRES_RUPTURE_PARAMETERS = set(('mag',))
 
-    REQUIRES_DISTANCES = set(('rrup', ))
+    REQUIRES_DISTANCES = set(('rrup',))
 
 
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
@@ -59,19 +59,31 @@ class AtkinsonWald2007(IPE):
         <.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
         for spec of input and result values.
         """
-        h = 14.0
-        R = np.sqrt(dists.rrup**2 + h**2)
-        B = np.zeros_like(dists.rrup)
-        B[R > 30.] = np.log10(R / 30.)[R > 30.]
-        mean_mmi = 12.27 + 2.270 * (rup.mag - 6) + 0.1304 * (rup.mag - 6)**2 - 1.30 * np.log10(R) - 0.0007070 * R + 1.95 * B - 0.577 * rup.mag * np.log10(R)
+        ## Table 2
+        c0 = 3.95
+        c1 = 0.913
+        c2 = -1.107
+        c3 = 0.813
+
+        ## Eqn. 1
+        mean_mmi = (c0 + c1 * rup.mag + c2 *
+                np.log(np.sqrt(dists.rrup**2 + (1 + c3 * np.exp(rup.mag-5))**2)))
+
         mean_mmi += self.compute_site_term(sites)
         mean_mmi = mean_mmi.clip(min=1, max=12)
 
-        stddevs = np.zeros_like(dists.rrup)
-        stddevs.fill(0.4)
+        ## Table 3
+        s1 = 0.72
+        s2 = 0.23
+        s3 = 44.7
+
+        ## Eqn. XX
+        stddevs = s1 + (s2 / (1 + (dists.rrup / s3)**2))
         stddevs = stddevs.reshape(1, len(stddevs))
         return mean_mmi, stddevs
 
     def compute_site_term(self, sites):
         # TODO !
         return 0
+
+# TODO: AllenEtAl2012Rhyp
