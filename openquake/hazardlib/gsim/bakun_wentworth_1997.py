@@ -65,9 +65,31 @@ class BakunWentworth1997(IPE):
         mean_mmi = mean_mmi.clip(min=1, max=12)
 
         stddevs = np.zeros_like(dists.repi)
+        stddevs = stddevs.reshape(1, len(stddevs))
 
         return mean_mmi, stddevs
 
     def compute_site_term(self, sites):
         # TODO !
         pass
+
+
+class BakunWentworth1997WithSigma(BakunWentworth1997):
+    """
+    Implements IPE developed by Bakun & Wentworth (1997)
+    with added sigma = 0.4, similar to AtkinsonWald2007
+    """
+    def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
+        """
+        See :meth:`superclass method
+        <.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
+        for spec of input and result values.
+        """
+
+        mean, stddevs = super(BakunWentworth1997WithSigma, self).get_mean_and_stddevs(
+                                            sites, rup, dists, imt, stddev_types)
+
+        stddevs.fill(0.4)
+
+        return mean, stddevs
+
