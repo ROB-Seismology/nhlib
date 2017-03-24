@@ -215,13 +215,18 @@ def ground_motion_field_with_residuals(
         ## otherwise, residuals will always be positive!
         ## Assume sign of intra_residual_epsilons and inter_residual_epsilons
         ## cannot be opposite
-        intra_sign = numpy.sign(intra_residual_epsilons)
-        inter_sign = numpy.sign(inter_residual_epsilons)
-        assert (intra_sign != -inter_sign).any()
-        sign = numpy.sign(intra_sign + inter_sign)
+        #intra_sign = numpy.sign(intra_residual_epsilons)
+        #inter_sign = numpy.sign(inter_residual_epsilons)
+        #assert (intra_sign != -inter_sign).any()
+        #sign = numpy.sign(intra_sign + inter_sign)
+
+        ## Convert residuals to imaginary part of complex numbers
+        intra_residual = 0 + 1j * intra_residual
+        inter_residual = 0 + 1j * inter_residual
 
         gmf = gsim.to_imt_unit_values(
-            mean + sign * numpy.sqrt(intra_residual**2 + inter_residual)**2)
+            #mean + sign * numpy.sqrt(intra_residual**2 + inter_residual)**2)
+            mean + numpy.imag(numpy.sqrt(intra_residual**2 + inter_residual)**2))
 
     gmf = sites.expand(gmf, total_sites, placeholder=0)
     return gmf
