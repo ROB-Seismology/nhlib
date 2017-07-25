@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-Module exports :class:`Barrientos2007`.
+Module exports :class:`Barrientos1980` and :class:`Barrientos1980WithSigma`.
 """
 from __future__ import division
 
@@ -26,7 +26,7 @@ from openquake.hazardlib import const
 from openquake.hazardlib.imt import MMI
 
 
-class Barrientos2007(IPE):
+class Barrientos1980(IPE):
     """
     Implements IPE developed by Barrientos (2007)
     Chile
@@ -72,3 +72,23 @@ class Barrientos2007(IPE):
     def compute_site_term(self, sites):
         # TODO !
         return 0
+
+
+class Barrientos1980WithSigma(Barrientos1980):
+    """
+    Implements IPE developed by Barrientos (2007)
+    with added sigma = 0.4, similar to AtkinsonWald2007
+    """
+    def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
+        """
+        See :meth:`superclass method
+        <.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
+        for spec of input and result values.
+        """
+
+        mean, stddevs = super(Barrientos1980WithSigma, self).get_mean_and_stddevs(
+                                            sites, rup, dists, imt, stddev_types)
+
+        stddevs.fill(0.4)
+
+        return mean, stddevs
