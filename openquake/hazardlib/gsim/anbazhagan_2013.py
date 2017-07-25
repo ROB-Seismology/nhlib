@@ -41,41 +41,33 @@ class Anbazhagan2013(GMPE):
     This GMPE was developed for the Himalayan region.
     """
 
-    #: Supported tectonic region type is active shallow crust,
-    #: see end of 'Introduction', page 454.
+    #: Supported tectonic region type is active shallow crust.
     DEFINED_FOR_TECTONIC_REGION_TYPE = const.TRT.ACTIVE_SHALLOW_CRUST
 
-    #: Supported intensity measure types are spectral acceleration, peak
-    #: ground acceleration and peak ground velocity.
-    #: The original paper provides coefficients for PGA and PGV, while SA
-    #: is obtained from displacement response spectrum values.
+    #: Supported intensity measure types are spectral acceleration
+    #: and peak ground acceleration.
     DEFINED_FOR_INTENSITY_MEASURE_TYPES = set([
         PGA,
         SA
     ])
 
     #: Supported intensity measure component is the geometric mean of two
-    #: horizontal components
-    #: :attr:`~openquake.hazardlib.const.IMC.AVERAGE_HORIZONTAL`,
-    #: see paragraph 'On functional forms', page 462.
+    #: horizontal components.
     DEFINED_FOR_INTENSITY_MEASURE_COMPONENT = const.IMC.AVERAGE_HORIZONTAL
 
-    #: Supported standard deviation type is only total, see paragraph 'On
-    #: functional forms', page 462.
+    #: Supported standard deviation type is only total.
     DEFINED_FOR_STANDARD_DEVIATION_TYPES = set([
         const.StdDev.TOTAL
     ])
 
-    #: Required site parameter is only Vs30 (used to distinguish rock
-    #: and deep soils), see paragraph 'On functional forms', page 463.
+    #: There ar no required site parameters
     REQUIRES_SITES_PARAMETERS = set()
 
-    #: Required rupture parameters are magnitude and rake, see paragraph 'On
-    #: functional forms', page 463
+    #: Required rupture parameter is only magnitude.
     REQUIRES_RUPTURE_PARAMETERS = set(('mag',))
 
-    #: Required distance measure is Rhypo, see paragraph 'Distance', page 456.
-    REQUIRES_DISTANCES = set(('rrup', ))
+    #: Required distance measure is Rhypo.
+    REQUIRES_DISTANCES = set(('rhypo', ))
 
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
         """
@@ -90,7 +82,7 @@ class Anbazhagan2013(GMPE):
         # mean value as given by equation (4), p. 103.
         # log y = c1 + c2 * M - b * log10(rhypo + exp(c3 * M))
         c1, c2, c3, b = C['c1'], C['c2'], C['c3'], C['b']
-        log10_mean = c1 + c2 * rup.mag - b * np.log10(dists.rrup + np.exp(c3 * rup.mag))
+        log10_mean = c1 + c2 * rup.mag - b * np.log10(dists.rhypo + np.exp(c3 * rup.mag))
 
         # From base-10 to natural logarithm
         mean = log10_mean * ln10
