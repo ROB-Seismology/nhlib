@@ -66,6 +66,7 @@ class Barrientos1980(IPE):
         mean_mmi = mean_mmi.clip(min=1, max=12)
 
         stddevs = np.zeros_like(dists.rhypo)
+        stddevs = stddevs.reshape(1, len(stddevs))
 
         return mean_mmi, stddevs
 
