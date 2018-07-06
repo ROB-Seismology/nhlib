@@ -75,7 +75,8 @@ class BergeThierry2003(GMPE):
         """
         # extracting dictionary of coefficients specific to required
         # intensity measure type.
-        C = {5: self.COEFFS05, 20: self.COEFFS20}[imt[1]][imt]
+        damping = imt[2] or 5
+        C = {5: self.COEFFS05, 20: self.COEFFS20}[damping][imt]
 
         # Equation 1, pag 201, with magnitude, distance and site amplification term
         log10_mean = self._compute_magnitude_scaling(rup, C) + \
@@ -139,10 +140,10 @@ class BergeThierry2003(GMPE):
     #: std is the total standard deviation.
 
     # TODO: add other damping factors
-    # TODO: check if first period = 3.0000E-02 or 2.9412E-02
+    # Note: first period (T=2.9412E-02, f=34 Hz) considered as PGA
     COEFFS05 = CoeffsTable(sa_damping=5, table="""\
     IMT    a    b    c1    c2    std
-    2.9412E-02    3.1180E-01    -9.3030E-04    1.5370E+00    1.5730E+00    2.9230E-01
+    pga    3.1180E-01    -9.3030E-04    1.5370E+00    1.5730E+00    2.9230E-01
     3.0000E-02    3.1140E-01    -9.3340E-04    1.5410E+00    1.5760E+00    2.9240E-01
     3.2258E-02    3.0970E-01    -9.4220E-04    1.5580E+00    1.5890E+00    2.9280E-01
     3.4000E-02    3.0830E-01    -9.5470E-04    1.5730E+00    1.6020E+00    2.9350E-01
@@ -431,5 +432,5 @@ class BergeThierry2003(GMPE):
     3.40E-02    3.08E-01    -9.33E-04    1.56E+00    1.60E+00    2.93E-01
     3.23E-02    3.09E-01    -9.26E-04    1.56E+00    1.59E+00    2.93E-01
     3.00E-02    3.10E-01    -9.15E-04    1.55E+00    1.58E+00    2.92E-01
-    2.94E-02    3.10E-01    -9.12E-04    1.54E+00    1.58E+00    2.92E-01
+    pga    3.10E-01    -9.12E-04    1.54E+00    1.58E+00    2.92E-01
     """)
