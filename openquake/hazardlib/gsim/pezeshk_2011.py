@@ -60,14 +60,14 @@ class PezeshkEtAl2011(GMPE):
 
     #: No site parameters are needed. The GMPE was developed for hard-rock site
     # with Vs30 >= 2000 m/s (NEHRP site class A) only. Page 1864.
-    REQUIRES_SITES_PARAMETERS = set()
+    REQUIRES_SITES_PARAMETERS = set(('vs30',))
 
     #: Required rupture parameters are magnitude (eq. 4, page 1866).
-    REQUIRES_RUPTURE_PARAMETERS = set(('mag'))
+    REQUIRES_RUPTURE_PARAMETERS = set(('mag',))
 
     #: Required distance measure is RRup, explained in page 1864 (eq. 2 page
     #: 1861, eq. 5 page 1866).
-    REQUIRES_DISTANCES = set(('rrup'))
+    REQUIRES_DISTANCES = set(('rrup',))
 
     def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
         """
