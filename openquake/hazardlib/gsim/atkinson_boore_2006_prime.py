@@ -230,7 +230,7 @@ class AtkinsonBoore2006Prime(BooreAtkinson2008):
         ## can be obtained by interpolating between the B/C value of 760 m/s
         ## and the hard rock value, assuming it to represent motions for
         ## VS30=2000 m/s
-        idxs = -soft_soil_idxs  * (sites.vs30 < 2000.0)
+        idxs = ~soft_soil_idxs  * (sites.vs30 < 2000.0)
         idxs = np.arange(len(mean_bc))[idxs]
         for idx in idxs:
             mean_bc[idx] = np.interp(sites.vs30[idx], [760.,2000.], [mean_bc[idx], mean_hr[idx]])
