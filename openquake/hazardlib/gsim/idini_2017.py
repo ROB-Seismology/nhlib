@@ -31,7 +31,7 @@ class IdiniEtAl2017SInter(GMPE):
     """
     Implements GMPE developed by Idini et al. and published as
     "Ground motion prediction equations for the Chilean subduction zone"
-    (Bull. Earthquake Eng.,  Volume 15, Issue 5, pp 1853–1880, 2017,
+    (Bull. Earthquake Eng.,  Volume 15, Issue 5, pp 1853-1880, 2017,
     DOI 10.1007/s10518-016-0050-1).
     The class implements the equations for 'Subduction Interface'
     (that's why the class name ends with 'SInter').
@@ -190,7 +190,7 @@ class IdiniEtAl2017SSlab(IdiniEtAl2017SInter):
     """
     Implements GMPE developed by Idini et al. and published as
     "Ground motion prediction equations for the Chilean subduction zone"
-    (Bull. Earthquake Eng.,  Volume 15, Issue 5, pp 1853–1880, 2017,
+    (Bull. Earthquake Eng.,  Volume 15, Issue 5, pp 1853-1880, 2017,
     DOI 10.1007/s10518-016-0050-1).
     The class implements the equations for 'Subduction
     IntraSlab' (that's why the class name ends with 'SSlab').
