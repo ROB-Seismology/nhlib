@@ -125,6 +125,7 @@ class SiteCollection(object):
         self.kappa = self.vs30.copy()
         lons = self.vs30.copy()
         lats = self.vs30.copy()
+        depths = self.vs30.copy()
 
         for i in xrange(len(sites)):
             self.vs30[i] = sites[i].vs30
@@ -134,8 +135,10 @@ class SiteCollection(object):
             self.kappa[i] = sites[i].kappa
             lons[i] = sites[i].location.longitude
             lats[i] = sites[i].location.latitude
+            depths[i] = sites[i].location.depth
 
-        self.mesh = Mesh(lons, lats, depths=None)
+        #self.mesh = Mesh(lons, lats, depths=None)
+        self.mesh = Mesh(lons, lats, depths=depths)
 
         # protect arrays from being accidentally changed. it is useful
         # because we pass these arrays directly to a GMPE through
