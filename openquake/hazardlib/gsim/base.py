@@ -358,7 +358,7 @@ class GroundShakingIntensityModel(object):
                 if cav_min == 0 or rctx.mag > cav_max_mag:
                     return sa_exceedance_prob
                 else:
-                    from cav import calc_CAV_exceedance_prob
+                    from cav import calc_cav_exceedance_prob
 
                     imt_pga = imt_module.PGA()
                     if imt != imt_pga:
@@ -380,7 +380,7 @@ class GroundShakingIntensityModel(object):
                         ln_pga = ln_pga_med + eps_pga * sigma_ln_pga
                         ln_pga_eps_pga_array[e] = ln_pga
                         ## CAV exceedance probability for PGA
-                        cav_exceedance_prob[e] = calc_CAV_exceedance_prob(ln_pga, rctx.mag, sctx.vs30, cav_min=cav_min)
+                        cav_exceedance_prob[e] = calc_cav_exceedance_prob(ln_pga, rctx.mag, sctx.vs30, cav_min=cav_min)
 
                     joint_exceedance_probs = numpy.zeros((nsites, len(imls)))
 
